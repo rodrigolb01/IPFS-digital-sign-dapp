@@ -19,7 +19,6 @@ const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https
 
 //If testnet is goerli
 const contractAddress = require('../abis/File.json').networks[5].address.toString();
-
 class App extends Component {
 
   constructor(props) {

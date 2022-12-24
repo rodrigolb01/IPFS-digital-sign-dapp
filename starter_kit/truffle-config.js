@@ -17,13 +17,13 @@ module.exports = {
         new HDWalletProvider({
           mnemonic: {
             phrase: process.env.MNEMONIC
-          },
-          providerOrUrl: `https://goerli.infura.io/v3/${process.env.REACT_APP_INFURA_WEB3_PROJECT_ID}`,
+          }, //use websockets to avoid issues with network latency 
+          providerOrUrl: `wss://goerli.infura.io/ws/v3/${process.env.REACT_APP_INFURA_WEB3_PROJECT_ID}`,
           numberOfAddresses: 1,
           shareNonce: true,
         }),
       network_id: '5',
-      networkCheckTimeout: 10000,
+      networkCheckTimeout: 20000,
       timeoutBlocks: 200,
       skipDryRun: true
     },
