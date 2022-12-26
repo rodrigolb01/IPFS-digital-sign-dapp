@@ -1,26 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.5.0 <=0.8.17;
 
-/*
-    Copyright 2016, Adrià Massanet
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-    
-    Checked results with FIPS test vectors
-    https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Algorithm-Validation-Program/documents/dss/186-2rsatestvectors.zip
-    file SigVer15_186-3.rsp
-    
- */
-
-library SolRsaVerify {
+contract SolRsaVerify {
 
     function memcpy(uint _dest, uint _src, uint _len) pure internal {
         // Copy word-length chunks while possible
@@ -40,21 +21,18 @@ library SolRsaVerify {
             mstore(_dest, or(destpart, srcpart))
         }
     }
-
-    
+ 
     function join(
 	bytes memory _s, bytes memory _e, bytes memory _m
     ) pure internal returns (bytes memory) {
-        uint inputLen = 0x60+_s.length+_e.length+_m.length;
-        
+        uint inputLen = 0x60+_s.length+_e.length+_m.length;       
         uint slen = _s.length;
         uint elen = _e.length;
         uint mlen = _m.length;
         uint sptr;
         uint eptr;
         uint mptr;
-        uint inputPtr;
-        
+        uint inputPtr;       
         bytes memory input = new bytes(inputLen);
         assembly {
             sptr := add(_s,0x20)
