@@ -18,8 +18,7 @@ const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https
 }})
 
 //If testnet is goerli
-const contractAddress = require('../abis/File.json').networks[5].address.toString();
-
+const storageFileContractAddress = require('../abis/File.json').networks[5].address.toString();
 ///
 const verifyContractAddress = require('../abis/SolRsaVerify.json').networks[5].address.toString();
 ///
@@ -31,15 +30,15 @@ class App extends Component {
     this.state = {
       account: null,
       provider: null,
-      uploadPicContractInstance: null,
-      verifySigContractInstance: null,
-      buffer: null,
+      storageFileContractInstance: null,
+      verifySignatureContractInstance: null,
+      storageFileBuffer: null,
+      signFileBuffer: null,
       cid: null,
       msg: "",
       signature: "",
       publicKeyModulus: "",
-      publicKeyExponent: "",
-      bufferMsg: null
+      publicKeyExponent: ""
     }
   }
 
@@ -67,16 +66,16 @@ class App extends Component {
       console.log("your provider");
       console.log(this.state.provider);
 
-      const deployedUploadPicContract = await new ethers.Contract(contractAddress, File.abi, this.state.provider.getSigner());
+      const deployedStorageFileContract = await new ethers.Contract(storageFileContractAddress, File.abi, this.state.provider.getSigner());
       const deployedVerifySignatureContract = await new ethers.Contract(verifyContractAddress, SolRsaVerify.abi, this.state.provider.getSigner());
 
       await this.setState({
-        uploadPicContractInstance : deployedUploadPicContract,
-        verifySigContractInstance: deployedVerifySignatureContract
+        storageFileContractInstance : deployedStorageFileContract,
+        verifySignatureContractInstance: deployedVerifySignatureContract
       });
 
-      console.log(this.state.uploadPicContractInstance)
-      console.log(this.state.verifySigContractInstance)
+      console.log(this.state.storageFileContractInstance)
+      console.log(this.state.verifySignatureContractInstance)
     }
     else 
     {
@@ -85,30 +84,30 @@ class App extends Component {
   }
 
   //upload file to the browser and save in the state as a buffer
-  captureFile = (e) => {
+  captureFileForStorage = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      this.setState({buffer : Buffer(reader.result)})
+      this.setState({storageFileBuffer : Buffer(reader.result)})
     }
   }
 
-  captureFile2 = (e) => {
+  captureFileForSigning = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      this.setState({bufferMsg : Buffer(reader.result)})
+      this.setState({signFileBuffer : Buffer(reader.result)})
     }
   }
 
   //upload to IPFS and recover it's CID (hash/address)
   onSubmit = async(e) => {
     e.preventDefault();
-    await ipfs.add(this.state.buffer, async (error, result) => {
+    await ipfs.add(this.state.storageFileBuffer, async (error, result) => {
       console.log('IPFS Result: ' + result);
 
       if(error)
@@ -131,7 +130,7 @@ class App extends Component {
 
   storeHash = async() => {
     try {
-      await this.state.uploadPicContractInstance.set(this.state.cid);
+      await this.state.storageFileContractInstance.set(this.state.cid);
     } catch (error) {
       window.alert(error);
     }
@@ -139,7 +138,7 @@ class App extends Component {
 
   retrieveHash = async() => {
     try {
-      const result = await this.state.uploadPicContractInstance.get();
+      const result = await this.state.storageFileContractInstance.get();
       return result;
     } catch (error) {
       window.alert(error);
@@ -151,16 +150,16 @@ class App extends Component {
   }
 
   VerifySignature = async(event) => {
-    //generate the signature with:
+    //generate the signature:
     //echo -n "hello world" | openssl dgst -sha256 -sign privatekey.pem -out | xxd -p | tr -d \\n
 
-    //generate the modulus with:
+    //extract the modulus and the exponent using:
     //openssl asn1parse -inform pem -i -in publickey.crt -strparse 18
 
     //reads content of the file
     event.preventDefault();
-    console.log('your file: ' + this.state.bufferMsg);
-    const bufferToString = this.state.bufferMsg.toString();
+    console.log('your file: ' + this.state.signFileBuffer);
+    const bufferToString = this.state.signFileBuffer.toString();
 
     //Error: hex data is odd-length 
     console.log('your signature: ' + this.state.signature);
@@ -186,7 +185,7 @@ class App extends Component {
     S = web3.utils.asciiToHex(S);
     const nn = "B8BAE1F65760E0262B2DC9D82B4151ED3CBEB12DFE5A9C60E0E9353597B1541290CB800A32FED61A864170A9314E8250E95AB95063CC3AC0E8C17CC5FCE14B780B01B8B23A0BCC31D31E6DC008C783B65CC354A3BB7B732C3F44380CFE01A5921106126B427B1BBC9A873B0B9772104EEEA8614F7D2480D7CCEA7DE09749F32F";
 
-    const result = await this.state.verifySigContractInstance.pkcs1Sha256VerifyRaw(Msg, S,"0x"+e,"0x"+nn);
+    const result = await this.state.verifySignatureContractInstance.pkcs1Sha256VerifyRaw(Msg, S,"0x"+e,"0x"+nn);
     console.log('Signature is valid: ' + result);
   }
 
@@ -218,7 +217,7 @@ class App extends Component {
                   <p>&nbsp;</p>
                   <h2>Upload a file to IPFS</h2>
                   <form onSubmit={this.onSubmit}>
-                    <input type="file" onChange={this.captureFile}/>
+                    <input type="file" onChange={this.captureFileForStorage}/>
                     <input type="submit"/>
                     <p>&nbsp;</p>
                     { this.state.cid ? `Your CID: ${this.GetCid()}` : "" }
@@ -232,13 +231,13 @@ class App extends Component {
         </div>
         <div className='digital signature'>
           <form onSubmit={this.VerifySignature}>
-            {/* <div>
+            {/* <div>captureFileForSigning
               <label>Message</label>
               <input value={this.state.msg} onChange={(e)=>{this.setState({msg: e.target.value})}} type={"text"}></input>
             </div> */}
             <div>
               <label> upload a file to sign</label>
-              <input type="file" onChange={this.captureFile2}></input>
+              <input type="file" onChange={this.}></input>
             </div>
             <div>
               <label>Signature</label>
