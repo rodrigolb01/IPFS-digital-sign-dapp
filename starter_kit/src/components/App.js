@@ -231,13 +231,13 @@ class App extends Component {
         </div>
         <div className='digital signature'>
           <form onSubmit={this.VerifySignature}>
-            {/* <div>captureFileForSigning
+            {/* <div>
               <label>Message</label>
               <input value={this.state.msg} onChange={(e)=>{this.setState({msg: e.target.value})}} type={"text"}></input>
             </div> */}
             <div>
               <label> upload a file to sign</label>
-              <input type="file" onChange={this.}></input>
+              <input type="file" onChange={this.captureFileForSigning}></input>
             </div>
             <div>
               <label>Signature</label>
