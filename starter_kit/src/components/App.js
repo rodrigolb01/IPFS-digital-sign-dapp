@@ -4,9 +4,12 @@ import './App.css';
 import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
 
-const crypto = require('crypto');
+const forge = require('node-forge');
 
 require('dotenv').config();
+var fs = require('fs');
+const rs = require('jsrsasign');
+const rsu = require('jsrsasign-util');
 const ethers = require('ethers');
 const ipfsClient = require('ipfs-http-client');
 
@@ -78,39 +81,52 @@ class App extends Component {
    onSubmit = async(e) => {
     e.preventDefault();
 
-    // this.sign(this.state.fileBuffer, this.state.certificateBuffer, this.state.privateKeyBuffer);
+    console.log("signing your pdf...");
+    this.sign(this.state.fileBuffer, this.state.privateKeyBuffer);
+    console.log("done");
 
-    await ipfs.add(this.state.fileBuffer, async (error, result) => {
-      if(error)
-        console.log('error! Failed to upload to IPFS: ' + error)
-      if(result)
-      {
-        await this.storeHash(result[0].hash);
-        let res = await this.retrieveHash();
+    // *** From this line below: Store file in Ipfs ***
+    // await ipfs.add(this.state.fileBuffer, async (error, result) => {
+    //   if(error)
+    //     console.log('error! Failed to upload to IPFS: ' + error)
+    //   if(result)
+    //   {
+    //     await this.storeHash(result[0].hash);
+    //     let res = await this.retrieveHash();
 
-        this.setState(
-          {
-            ipfsHash: res,
-            ipfsRedirectUrl: `https://ipfs.stibits.com/${res}`
-          }
-        );
-      }
-    });
+    //     this.setState(
+    //       {
+    //         ipfsHash: res,
+    //         ipfsRedirectUrl: `https://ipfs.stibits.com/${res}`
+    //       }
+    //     );
+    //   }
+    // });
   }
+  
+  sign = async (file, pkey) => {
+    // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
+    const toString = pkey.toString();
+    var prv = rs.KEYUTIL.getKey(toString);
+    console.log("this is the key extracted from it: " + prv);
 
-  sign = (file, certificate, privateKey) => {
+    //alg unsupported?
+    var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
+    sig.init(prv);
+    sig.updateString(file);
 
-    const signatureScheme = 'RSASSA-PKCS1-v1_5';
-    const exponent = new Uint8Array([0x01, 0x00, 0x01]);
-    const encryption = {name: signatureScheme, hash: {name: "SHA-256"}};
+    var sigHex = sig.sign();
 
+    //console.log(sigHex);
+    console.log("successfully signed");
+    console.log("your signature: " + sigHex);
 
-    var signature = window.crypto.subtle.sign( {name: signatureScheme}, certificate, file );
+    //for verification
+    // var verify = new rs.KJUR.crypto.Signature({alg: 'SHA512withDSA'})
+    var result = async() => {await sig.verify(sigHex)};
+    console.log("signature is valid: " + result);
 
-    console.log("your signature" + signature);
-      
-    console.log("your file : " + file);
-    console.log("your certificate :" + certificate);
+    // now save the signed file
   }
 
   //upload file to the browser and save in the state as a buffer
@@ -144,6 +160,24 @@ class App extends Component {
     reader.onloadend = () => {
       this.setState({privateKeyBuffer: Buffer(reader.result)})
     }
+  }
+
+  // from https://developers.google.com/web/updates/2012/06/How-to-convert-ArrayBuffer-to-and-from-String
+  /**
+   * Convert a string to an ArrayBuffer.  In this example, the string will be
+   * a DER encoding of a private or public key
+   * @param string str A string representation of a set of ordinal octal values
+   * @return ArrayBuffer
+   */
+  str2ab(str) 
+  {
+      const buf = new ArrayBuffer(str.length);
+      const bufView = new Uint8Array(buf);
+      for (let i = 0, strLen = str.length; i < strLen; i++)
+      {
+          bufView[i] = str.charCodeAt(i);
+      }
+      return buf;
   }
 
   storeHash = async(hash) => {
@@ -182,10 +216,10 @@ class App extends Component {
                       <label>upload diploma file</label>
                       <input type="file" onChange={this.captureFile}/>
                     </div>
-                    <div>
+                    {/* <div>
                       <label> upload your certificate</label>
                       <input type="file" onChange={this.captureCertificate}></input>
-                    </div>
+                    </div> */}
                     <div>
                       <label> upload your private key</label>
                       <input type="file" onChange={this.caturePrivateKey}></input>
