@@ -5,6 +5,7 @@ import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
 
 require('dotenv').config();
+const fs = require('fs');
 const rs = require('jsrsasign');
 const rsu = require('jsrsasign-util');
 const ethers = require('ethers');
@@ -17,11 +18,12 @@ const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https
   Authorization: 'Basic ' + encodedSecrets
 }})
 
-//If testnet is goerli
+//If testnet is goerli select network 5
+//should use a config file for this!
 const fileStorageContractAddress = require('../abis/File.json').networks[5].address.toString();
 
 class App extends Component {
-
+// all must be null
   constructor(props) {
     super(props);
     this.state = {
@@ -32,7 +34,7 @@ class App extends Component {
       certificateBuffer: null,
       privateKeyBuffer: null,
       ipfsRedirectUrl: "",
-      ipfsHash: "",
+      cid: "",
     }
   }
 
@@ -40,8 +42,8 @@ class App extends Component {
     await this.loadWeb3();
   }
 
+  //connect to Ethereum via Metamask
   loadWeb3 = async() => {
-    //get signer address from Metamask for making transactions
     if(typeof window.ethereum !== "undefined")
     {
       this.setState({account : await window.ethereum.request({method: "eth_requestAccounts"}) })
@@ -52,10 +54,9 @@ class App extends Component {
     {
       window.alert("Error! Unable to recover the signer");
     }
-    //get provider for connecting to web3
+
     if(typeof window.web3 !== "undefined")
     {
-      //connect to ethereum
       this.setState({provider : new ethers.providers.Web3Provider(window.ethereum)})
       console.log("your provider");
       console.log(this.state.provider);
@@ -74,34 +75,23 @@ class App extends Component {
     }
   }
 
-   //upload to IPFS and store hash in Ethereum
-   onSubmit = async(e) => {
+   //apply a digital signature and upload the buffered pdf file from state to ipfs 
+   //
+   //Returns a signed file and a fingerprint called CID from the IPFS network
+  onSubmit = async(e) => {
     e.preventDefault();
 
     console.log("signing your pdf...");
     this.sign(this.state.fileBuffer, this.state.privateKeyBuffer, this.state.certificateBuffer);
     console.log("done");
-
-    // *** From this line below: Store file in Ipfs ***
-    // await ipfs.add(this.state.fileBuffer, async (error, result) => {
-    //   if(error)
-    //     console.log('error! Failed to upload to IPFS: ' + error)
-    //   if(result)
-    //   {
-    //     await this.storeHash(result[0].hash);
-    //     let res = await this.retrieveHash();
-
-    //     this.setState(
-    //       {
-    //         ipfsHash: res,
-    //         ipfsRedirectUrl: `https://ipfs.stibits.com/${res}`
-    //       }
-    //     );
-    //   }
-    // });
+    // console.log("saving to Ipfs...")
+    // this.saveToIpfs(this.state.fileBuffer);
+    // console.log("finished!");
   }
   
-  //loads a buffered file and pem/txt key string
+  //applies to the buffered file a SHA512 with RSA digital signature using the supplied private key
+
+  //separate into signature and validation
   sign = async (file, pkey, cert) => {
     // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
     const pkeyObjtoString = pkey.toString();
@@ -110,7 +100,6 @@ class App extends Component {
     var prv = rs.KEYUTIL.getKey(pkeyObjtoString);
     console.log("this is the key extracted from your file: " + prv);
 
-    //alg unsupported?
     var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
     sig.init(prv);
     sig.updateString(file);
@@ -139,7 +128,33 @@ class App extends Component {
     console.log("validation result: signature is valid = ");
     console.log(result)
 
-    // now save the signed file
+    console.log("savings signature...");
+    fs.writeFile('../../files/signature.txt', signature, err => {
+      if (err) {
+        console.error(err);
+      }
+      // file written successfully
+    });
+
+  }
+
+  saveToIpfs = async(file) => {
+    await ipfs.add(file, async (error, result) => {
+      if(error)
+        console.log('error! Failed to upload to IPFS: ' + error)
+      if(result)
+      {
+        const fingerprint = result[0].hash;
+        await this.saveFingerPrintToEth(fingerprint);
+
+        this.setState(
+          {
+            cid: fingerprint,
+            ipfsRedirectUrl: `https://ipfs.stibits.com/${fingerprint}`
+          }
+        );
+      }
+    });
   }
 
   //upload file to the browser and save in the state as a buffer
@@ -175,25 +190,7 @@ class App extends Component {
     }
   }
 
-  // from https://developers.google.com/web/updates/2012/06/How-to-convert-ArrayBuffer-to-and-from-String
-  /**
-   * Convert a string to an ArrayBuffer.  In this example, the string will be
-   * a DER encoding of a private or public key
-   * @param string str A string representation of a set of ordinal octal values
-   * @return ArrayBuffer
-   */
-  str2ab(str) 
-  {
-      const buf = new ArrayBuffer(str.length);
-      const bufView = new Uint8Array(buf);
-      for (let i = 0, strLen = str.length; i < strLen; i++)
-      {
-          bufView[i] = str.charCodeAt(i);
-      }
-      return buf;
-  }
-
-  storeHash = async(hash) => {
+  saveFingerPrintToEth = async(hash) => {
     try {
       await this.state.fileStorageContractInstance.set(hash);
     } catch (error) {
@@ -201,7 +198,7 @@ class App extends Component {
     }
   }
 
-  retrieveHash = async() => {
+  retrieveFingerPrintFromEth = async() => {
     try {
       const result = await this.state.fileStorageContractInstance.get();
       return result;
@@ -251,13 +248,13 @@ class App extends Component {
                       </a>
                     </div>
                     <div className="results">
-                      <h4>{this.state.ipfsHash === "" ? "" : "Your Ipfs CID:"}</h4>
+                      <h4>{this.state.cid === "" ? "" : "Your Ipfs CID:"}</h4>
                       <h5 style={{color: "red"}}>      
-                          {this.state.ipfsHash !== "" ? 
+                          {this.state.cid !== "" ? 
                         "The CID is the identifier of your file in the IPFS. It's very important that you don't lose this information otherwise you might not be able to access your file"
                         : ""}
                       </h5>
-                      <h3>{this.state.ipfsHash === "" ? "" : this.state.ipfsHash}</h3>
+                      <h3>{this.state.cid === "" ? "" : this.state.cid}</h3>
                     </div>
                   </div>
                   </div>
