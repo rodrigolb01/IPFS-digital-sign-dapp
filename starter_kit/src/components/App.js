@@ -4,10 +4,7 @@ import './App.css';
 import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
 
-const forge = require('node-forge');
-
 require('dotenv').config();
-var fs = require('fs');
 const rs = require('jsrsasign');
 const rsu = require('jsrsasign-util');
 const ethers = require('ethers');
@@ -82,7 +79,7 @@ class App extends Component {
     e.preventDefault();
 
     console.log("signing your pdf...");
-    this.sign(this.state.fileBuffer, this.state.privateKeyBuffer);
+    this.sign(this.state.fileBuffer, this.state.privateKeyBuffer, this.state.certificateBuffer);
     console.log("done");
 
     // *** From this line below: Store file in Ipfs ***
@@ -104,27 +101,43 @@ class App extends Component {
     // });
   }
   
-  sign = async (file, pkey) => {
+  //loads a buffered file and pem/txt key string
+  sign = async (file, pkey, cert) => {
     // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
-    const toString = pkey.toString();
-    var prv = rs.KEYUTIL.getKey(toString);
-    console.log("this is the key extracted from it: " + prv);
+    const pkeyObjtoString = pkey.toString();
+    const certObjtoString = cert.toString();
+    
+    var prv = rs.KEYUTIL.getKey(pkeyObjtoString);
+    console.log("this is the key extracted from your file: " + prv);
 
     //alg unsupported?
     var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
     sig.init(prv);
     sig.updateString(file);
 
-    var sigHex = sig.sign();
+    //generate a signature string in hexadecimal
+    var signature = sig.sign();
 
-    //console.log(sigHex);
     console.log("successfully signed");
-    console.log("your signature: " + sigHex);
+    console.log("generated signature: " + signature);
 
+    console.log("validating signature...")
     //for verification
     // var verify = new rs.KJUR.crypto.Signature({alg: 'SHA512withDSA'})
-    var result = async() => {await sig.verify(sigHex)};
-    console.log("signature is valid: " + result);
+    console.log("initializing validator...")
+    sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
+
+    console.log("loading certificate...")
+    sig.init(certObjtoString);
+
+    console.log("loading file for validation...")
+    sig.updateString(file);
+
+    console.log("validating signature...")
+    var result =  sig.verify(signature);
+
+    console.log("validation result: signature is valid = ");
+    console.log(result)
 
     // now save the signed file
   }
@@ -216,36 +229,38 @@ class App extends Component {
                       <label>upload diploma file</label>
                       <input type="file" onChange={this.captureFile}/>
                     </div>
-                    {/* <div>
-                      <label> upload your certificate</label>
-                      <input type="file" onChange={this.captureCertificate}></input>
-                    </div> */}
                     <div>
                       <label> upload your private key</label>
                       <input type="file" onChange={this.caturePrivateKey}></input>
                     </div>
-                    <input type="submit" title='sign' />
-                    <p>&nbsp;</p>
-                    <div className="results">
-                      <div>
-                        <h4>
-                          {this.state.ipfsRedirectUrl !== "" ? "Your file has been uploaded to Ipfs use the link below to access it" : ""}
-                        </h4>
-                        <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
-                          {this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}
-                        </a>
-                      </div>
-                      <div className="results">
-                        <h4>{this.state.ipfsHash == "" ? "" : "Your Ipfs CID:"}</h4>
-                        <h5 style={{color: "red"}}>      
-                            {this.state.ipfsHash != "" ? 
-                          "The CID is the identifier of your file in the IPFS. It's very important that you don't lose this information otherwise you might not be able to access your file"
-                          : ""}
-                        </h5>
-                        <h3>{this.state.ipfsHash == "" ? "" : this.state.ipfsHash}</h3>
-                      </div>
+                    <div>
+                      <label> upload your certificate</label>
+                      <input type="file" onChange={this.captureCertificate}></input>
                     </div>
+                    <input type="submit" title='sign' />
                   </form>
+                  <div>
+                  <p>&nbsp;</p>
+                  <div className="results">
+                    <div>
+                      <h4>
+                        {this.state.ipfsRedirectUrl !== "" ? "Your file has been uploaded to Ipfs use the link below to access it" : ""}
+                      </h4>
+                      <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
+                        {this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}
+                      </a>
+                    </div>
+                    <div className="results">
+                      <h4>{this.state.ipfsHash === "" ? "" : "Your Ipfs CID:"}</h4>
+                      <h5 style={{color: "red"}}>      
+                          {this.state.ipfsHash !== "" ? 
+                        "The CID is the identifier of your file in the IPFS. It's very important that you don't lose this information otherwise you might not be able to access your file"
+                        : ""}
+                      </h5>
+                      <h3>{this.state.ipfsHash === "" ? "" : this.state.ipfsHash}</h3>
+                    </div>
+                  </div>
+                  </div>
                 </div>
               </main>
             </div>
