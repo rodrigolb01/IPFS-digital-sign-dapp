@@ -5,14 +5,14 @@ import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
 
 require('dotenv').config();
-const fs = require('fs');
 const rs = require('jsrsasign');
 const rsu = require('jsrsasign-util');
+
 const ethers = require('ethers');
 const ipfsClient = require('ipfs-http-client');
 
-let secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
-let encodedSecrets = base64_encode(secrets)
+const secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
+const encodedSecrets = base64_encode(secrets)
 
 const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https" , headers: {
   Authorization: 'Basic ' + encodedSecrets
@@ -31,10 +31,12 @@ class App extends Component {
       provider: null,
       fileStorageContractInstance: null,
       fileBuffer: null,
+      file1Buffer: null,
       certificateBuffer: null,
       privateKeyBuffer: null,
       ipfsRedirectUrl: "",
       cid: "",
+      fileSignature: ""
     }
   }
 
@@ -75,32 +77,44 @@ class App extends Component {
     }
   }
 
-   //apply a digital signature and upload the buffered pdf file from state to ipfs 
-   //
-   //Returns a signed file and a fingerprint called CID from the IPFS network
-  onSubmit = async(e) => {
+  onSubmitSign = async(e) => {
     e.preventDefault();
 
-    console.log("signing your pdf...");
-    this.sign(this.state.fileBuffer, this.state.privateKeyBuffer, this.state.certificateBuffer);
+    // console.log("signing your pdf...");
+    // this.sign(this.state.fileBuffer, this.state.privateKeyBuffer);
+    // console.log("done");
+
+   //atually should upload the file with the signature embedded but I don't know to put it in Pades format for now
+
+    console.log("saving to Ipfs...")
+    this.saveToIpfs(this.state.fileBuffer);
+    console.log("finished!");
+  }
+
+  onSubmitVerify = async(e) => {
+    e.preventDefault();
+
+    console.log("verifying your signature...");
+    this.verify(this.state.certificateBuffer, this.state.file1Buffer, this.state.fileSignature);
     console.log("done");
-    // console.log("saving to Ipfs...")
-    // this.saveToIpfs(this.state.fileBuffer);
-    // console.log("finished!");
   }
   
-  //applies to the buffered file a SHA512 with RSA digital signature using the supplied private key
 
-  //separate into signature and validation
-  sign = async (file, pkey, cert) => {
+  //applies to the buffered file a SHA512 with RSA digital signature using the supplied private key
+  sign = async (file, pkey) => {
     // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
     const pkeyObjtoString = pkey.toString();
-    const certObjtoString = cert.toString();
+
+    console.log('your file: ');
+    console.log(file.toString());
+    console.log('');
+    console.log('you private key: ');
+    console.log(pkeyObjtoString);
+    console.log('');
     
     var prv = rs.KEYUTIL.getKey(pkeyObjtoString);
-    console.log("this is the key extracted from your file: " + prv);
-
     var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
+
     sig.init(prv);
     sig.updateString(file);
 
@@ -108,34 +122,45 @@ class App extends Component {
     var signature = sig.sign();
 
     console.log("successfully signed");
-    console.log("generated signature: " + signature);
+    console.log("your signature: " + signature);
+    this.setState({fileSignature : signature})
+  }
 
-    console.log("validating signature...")
-    //for verification
-    // var verify = new rs.KJUR.crypto.Signature({alg: 'SHA512withDSA'})
+  verify = async(cert, file, signature) => {
+    const certObjtoString = cert.toString();
+
+    console.log('your file: ');
+    console.log(file.toString());
+    console.log('');
+    console.log('you certificate: ');
+    console.log(certObjtoString);
+    console.log('');
+    console.log('your signature: ');
+    console.log(signature);
+    console.log('');
+    
     console.log("initializing validator...")
-    sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
+    const sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
 
     console.log("loading certificate...")
     sig.init(certObjtoString);
 
+    //seems to return true for other files then the one signed?
     console.log("loading file for validation...")
     sig.updateString(file);
 
     console.log("validating signature...")
-    var result =  sig.verify(signature);
+    const result = sig.verify(signature);
 
-    console.log("validation result: signature is valid = ");
-    console.log(result)
+    console.log(`validation result: signature is valid : ${result}`);
 
-    console.log("savings signature...");
-    fs.writeFile('../../files/signature.txt', signature, err => {
-      if (err) {
-        console.error(err);
-      }
-      // file written successfully
-    });
-
+    // console.log("savings signature...");
+    // fs.writeFile('../../files/signature.txt', signature, err => {
+    //   if (err) {
+    //     console.error(err);
+    //   }
+    //   // file written successfully
+    // });
   }
 
   saveToIpfs = async(file) => {
@@ -157,8 +182,8 @@ class App extends Component {
     });
   }
 
-  //upload file to the browser and save in the state as a buffer
-  captureFile = (e) => {
+  //upload file to the browser and save in the state as a buffer 
+  captureFileForSign = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
@@ -168,6 +193,16 @@ class App extends Component {
     }
   }
 
+  //upload file to the browser and save in the state as a buffer 
+  captureFileForVerify = (e) => {
+    e.preventDefault();
+    const data = e.target.files[0];
+    const reader = new window.FileReader();
+    reader.readAsArrayBuffer(data);
+    reader.onloadend = () => {
+      this.setState({file1Buffer : Buffer(reader.result)})
+    }
+  }
   //upload a valid x509 certificate to the browser and save in the state as a buffer
   captureCertificate = (e) => {
     e.preventDefault();
@@ -188,6 +223,12 @@ class App extends Component {
     reader.onloadend = () => {
       this.setState({privateKeyBuffer: Buffer(reader.result)})
     }
+  }
+
+  captureSignature = (e) => {
+    e.preventDefault();
+    const data = e.target.value;
+    this.setState({fileSignature : data});
   }
 
   saveFingerPrintToEth = async(hash) => {
@@ -220,22 +261,38 @@ class App extends Component {
                 <div className="content mr-auto ml-auto">
                   <img src={logo} className="App-logo" alt="logo" />
                   <p>&nbsp;</p>
-                  <h2>Upload a file to IPFS</h2>
-                  <form onSubmit={this.onSubmit}>
+                  <h2>Sign and verify a file</h2>
+                  <form onSubmit={this.onSubmitSign}>
                     <div>
                       <label>upload diploma file</label>
-                      <input type="file" onChange={this.captureFile}/>
+                      <input type="file" onChange={this.captureFileForSign}/>
                     </div>
                     <div>
                       <label> upload your private key</label>
                       <input type="file" onChange={this.caturePrivateKey}></input>
                     </div>
-                    <div>
-                      <label> upload your certificate</label>
-                      <input type="file" onChange={this.captureCertificate}></input>
-                    </div>
-                    <input type="submit" title='sign' />
+                    <input type="submit" title='sign'/>
                   </form>
+                  <p>&nbsp;</p>
+                  <div>
+                    {this.state.fileSignature !== "" ? "your file has been signed!" : ""}
+                  </div>
+                  <p>&nbsp;</p>
+                  <form onSubmit={this.onSubmitVerify}>
+                      <div>
+                        <label> upload your file </label>
+                        <input type="file" onChange={this.captureFileForVerify}></input>
+                      </div>
+                      <div>
+                        <label> paste here your signature </label>
+                        <input type="text" onChange={this.captureSignature}></input>
+                      </div>
+                      <div>
+                        <label> upload your certificate</label>
+                        <input type="file" onChange={this.captureCertificate}></input>
+                      </div>
+                      <input type="submit" title='verify'/>
+                    </form>
                   <div>
                   <p>&nbsp;</p>
                   <div className="results">

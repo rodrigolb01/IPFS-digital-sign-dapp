@@ -1,0 +1,16 @@
+[features]
+seeds = false
+#[programs.localnet]
+[programs.devnet]
+chain_backend = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+
+[registry]
+url = "https://anchor.projectserum.com"
+
+[provider]
+cluster = "localnet"
+#cluster = "devnet"
+wallet = "/home/john/.config/solana/id.json"
+
+[scripts]
+test = "node tests/chain-backend.js"
