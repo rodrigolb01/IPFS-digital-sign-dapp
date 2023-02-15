@@ -5,8 +5,14 @@ import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
 
 require('dotenv').config();
+
+// const plainAddPlaceholder = require('../node_modules/node-signpdf/dist/helpers/plainAddPlaceholder').default;
+const {plainAddPlaceholder} = require('node-signpdf')
+
+
 const rs = require('jsrsasign');
 const rsu = require('jsrsasign-util');
+const signer = require('node-signpdf');
 
 const ethers = require('ethers');
 const ipfsClient = require('ipfs-http-client');
@@ -36,7 +42,8 @@ class App extends Component {
       privateKeyBuffer: null,
       ipfsRedirectUrl: "",
       cid: "",
-      fileSignature: ""
+      fileSignature: "",
+      signedFileBuffer: null
     }
   }
 
@@ -79,6 +86,9 @@ class App extends Component {
 
   onSubmitSign = async(e) => {
     e.preventDefault();
+    console.log(plainAddPlaceholder);
+
+    await this.sign(this.state.fileBuffer, this.state.certificateBuffer);
 
     // console.log("signing your pdf...");
     // this.sign(this.state.fileBuffer, this.state.privateKeyBuffer);
@@ -86,45 +96,73 @@ class App extends Component {
 
    //atually should upload the file with the signature embedded but I don't know to put it in Pades format for now
 
-    console.log("saving to Ipfs...")
-    this.saveToIpfs(this.state.fileBuffer);
+    
+  }
+
+  // onSubmitVerify = async(e) => {
+  //   e.preventDefault();
+
+  //   console.log("verifying your signature...");
+  //   this.verify(this.state.certificateBuffer, this.state.file1Buffer, this.state.fileSignature);
+  //   console.log("done");
+  // }
+  
+
+  sign = async(pdf, cert) => {
+    const pdfWithPlaceholder = await plainAddPlaceholder({
+      pdfBuffer: pdf,
+      reason: 'test signature by candra',
+      contactInfo : 'candra@gmail.com',
+      name : 'Candra Herdianto',
+      location : 'Enschede, NL',
+  })
+  // sign the doc
+  const options = {
+    asn1StrictParsing: false,
+    passphrase: '1234'
+  }
+  const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
+
+  console.log('generated placeholder: ');
+  console.log(pdfWithPlaceholder);
+
+  console.log('your signer object:');
+  console.log(signer);
+
+  console.log('your signed file:');
+  console.log(signedPdf);
+
+
+  console.log("saving to Ipfs...") //signed but signature is not being detected by Acrobat?
+    this.saveToIpfs(signedPdf);
     console.log("finished!");
   }
 
-  onSubmitVerify = async(e) => {
-    e.preventDefault();
+  // //applies to the buffered file a SHA512 with RSA digital signature using the supplied private key
+  // sign = async (file, pkey) => {
+  //   // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
+  //   const pkeyObjtoString = pkey.toString();
 
-    console.log("verifying your signature...");
-    this.verify(this.state.certificateBuffer, this.state.file1Buffer, this.state.fileSignature);
-    console.log("done");
-  }
-  
-
-  //applies to the buffered file a SHA512 with RSA digital signature using the supplied private key
-  sign = async (file, pkey) => {
-    // var prvPEM = rsu.readFile(cert); //fs.readfileSync() is not a function
-    const pkeyObjtoString = pkey.toString();
-
-    console.log('your file: ');
-    console.log(file.toString());
-    console.log('');
-    console.log('you private key: ');
-    console.log(pkeyObjtoString);
-    console.log('');
+  //   console.log('your file: ');
+  //   console.log(file.toString());
+  //   console.log('');
+  //   console.log('you private key: ');
+  //   console.log(pkeyObjtoString);
+  //   console.log('');
     
-    var prv = rs.KEYUTIL.getKey(pkeyObjtoString);
-    var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
+  //   var prv = rs.KEYUTIL.getKey(pkeyObjtoString);
+  //   var sig = new rs.KJUR.crypto.Signature({alg: 'SHA512withRSA'});
 
-    sig.init(prv);
-    sig.updateString(file);
+  //   sig.init(prv);
+  //   sig.updateString(file);
 
-    //generate a signature string in hexadecimal
-    var signature = sig.sign();
+  //   //generate a signature string in hexadecimal
+  //   var signature = sig.sign();
 
-    console.log("successfully signed");
-    console.log("your signature: " + signature);
-    this.setState({fileSignature : signature})
-  }
+  //   console.log("successfully signed");
+  //   console.log("your signature: " + signature);
+  //   this.setState({fileSignature : signature})
+  // }
 
   verify = async(cert, file, signature) => {
     const certObjtoString = cert.toString();
@@ -187,6 +225,7 @@ class App extends Component {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
+    
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
       this.setState({fileBuffer : Buffer(reader.result)})
@@ -268,8 +307,8 @@ class App extends Component {
                       <input type="file" onChange={this.captureFileForSign}/>
                     </div>
                     <div>
-                      <label> upload your private key</label>
-                      <input type="file" onChange={this.caturePrivateKey}></input>
+                      <label> upload your certificate</label>
+                      <input type="file" onChange={this.captureCertificate}></input>
                     </div>
                     <input type="submit" title='sign'/>
                   </form>
@@ -278,7 +317,7 @@ class App extends Component {
                     {this.state.fileSignature !== "" ? "your file has been signed!" : ""}
                   </div>
                   <p>&nbsp;</p>
-                  <form onSubmit={this.onSubmitVerify}>
+                  {/* <form onSubmit={this.onSubmitVerify}>
                       <div>
                         <label> upload your file </label>
                         <input type="file" onChange={this.captureFileForVerify}></input>
@@ -292,7 +331,7 @@ class App extends Component {
                         <input type="file" onChange={this.captureCertificate}></input>
                       </div>
                       <input type="submit" title='verify'/>
-                    </form>
+                    </form> */}
                   <div>
                   <p>&nbsp;</p>
                   <div className="results">
