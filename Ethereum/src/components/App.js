@@ -3,6 +3,7 @@ import logo from '../logo.png';
 import './App.css';
 import { encode as base64_encode } from 'base-64';
 import File from '../abis/File.json';
+import axios from 'axios'
 
 require('dotenv').config();
 
@@ -12,7 +13,6 @@ const {plainAddPlaceholder} = require('node-signpdf')
 
 const rs = require('jsrsasign');
 const rsu = require('jsrsasign-util');
-const signer = require('node-signpdf');
 
 const ethers = require('ethers');
 const ipfsClient = require('ipfs-http-client');
@@ -90,100 +90,53 @@ class App extends Component {
   }
 
   sign = async(pdf, cert, pwd) => {
-    const pdfWithPlaceholder = await plainAddPlaceholder({
-      pdfBuffer: pdf,
-      reason: 'teste',
-      contactInfo : 'rodrigolb01@gmail.com',
-      name : 'Rodrigo Linhares',
-      location : 'Algum lugar',
-  })
-  // sign the doc
-  const options = {
-    asn1StrictParsing: false,
-    passphrase: pwd
-  }
-
-  console.log("options:");
-  console.log("Pwd: " + pwd);
-  
-  const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
-
-  console.log('sending request');
-  await fetch('http://localhost:5000/hello', { // api not receiving request body
-      method: "GET",
-      headers: { 
-        "Content-Type": "application/json",
-        "Accept": "application/json, text/plain, */*"
-      }
-    }).then(res => res.json)
-    .then(data => console.log( data));
-
-  // console.log('generated placeholder: ');
-  // console.log(pdfWithPlaceholder);
-
-  // console.log('your signer object:');
-  // console.log(signer);
-
-  // console.log('your signed file:');
-  // console.log(signedPdf);
-
-  //  send api request with buffered file for saving in pdf format 
-  const formatResponse = (res) => {
-    return JSON.stringify(res, null, 2);
-  }
-
-  // try {
-  //   // const reqData = {
-  //   //   "file" : "signedPdf"
-  //   // }
-
-  //   const res = await fetch('http://localhost:5000/download', { // api not receiving request body
-  //     method: "POST",
-  //     headers: { 
-  //       "Content-Type": "application/json",
-  //       "Accept": "application/json, text/plain, */*"
-  //     },
-  //     body: JSON.stringify(
-  //       {
-  //         "test": "testing"
-  //       }
-  //     )
-  //   }).then(res => res.json)
-  //   .then(data => console.log( data));
-
-  //   if(!res.ok) {
-  //     const message = `An error has occurred: ${res.status} - ${res.statusText}`;
-  //     console.log(res);
-  //     throw new Error(message);
-  //   }
-
-  //   console.log('request successuf')
-  //   const data = await res.json();
-
-  //   const result =  {
-  //     status: res.status + "- " + res.statusText,
-  //     headers: {
-  //       "Content-Type": res.headers.get("Content-Type"),
-  //       "Content-Length": res.headers.get("Content-Length")
-  //     },
-  //     data: data,
-  //   }
-
-  //   console.log('your response: ');
-  //   console.log(formatResponse(result));
-
-  // } catch (error) {
-  //   console.log('error fetching data: ')
-  //   console.log(error)
+  //   const pdfWithPlaceholder = await plainAddPlaceholder({
+  //     pdfBuffer: pdf,
+  //     reason: 'teste',
+  //     contactInfo : 'rodrigolb01@gmail.com',
+  //     name : 'Rodrigo Linhares',
+  //     location : 'Algum lugar',
+  // })
+  // // sign the doc
+  // const options = {
+  //   asn1StrictParsing: false,
+  //   passphrase: pwd
   // }
 
+  // console.log("options:");
+  // console.log("Pwd: " + pwd);
   
+  // const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
+
+  console.log('sending request for signpdf');
+
+
+  await this.sendFileForSign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
 
     //adds a widget to the pdf but isn't considered a signature by Acrobat
     // read pdf from file using fs instead of buffer
     // console.log("saving to Ipfs...") 
     // this.saveToIpfs(signedPdf);
     // console.log("finished!");
+  }
+
+  sendFileForSign = async(pdf, cert, pwd) => {
+    console.log('your file')
+
+    console.log(pdf);
+    axios({
+      withCredentials: false,
+      method: "POST",
+      url: 'http://localhost:5000/sign',
+      headers: { 
+        "Content-Type": "application/json",
+      },
+      data: {
+        "pdf": pdf,
+        "cert": cert,
+        "pwd": pwd
+      }
+    }).then(res => console.log(res));
   }
 
   //uploads a buffered file to ipfs
@@ -222,8 +175,11 @@ class App extends Component {
     
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
+      console.log('file as read by the window FileReader: ');
+      console.log(reader.result)
       this.setState({fileBuffer : Buffer(reader.result)})
     }
+   
   }
 
   
