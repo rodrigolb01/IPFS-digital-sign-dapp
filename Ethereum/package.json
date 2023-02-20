@@ -5,6 +5,7 @@
     "path": false,
     "os": false
   },
+  "proxy": "http://localhost:5000",
   "name": "eth-marketplace",
   "version": "0.1.0",
   "description": "An Ethereum Marketplace",
@@ -25,6 +26,7 @@
     "commander": "^10.0.0",
     "dotenv": "^16.0.3",
     "ethers": "^5.7.2",
+    "express-fileupload": "^1.4.0",
     "forge": "^2.3.0",
     "fs": "^0.0.1-security",
     "ipfs-http-client": "^33.1.1",
