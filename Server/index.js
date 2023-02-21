@@ -2,6 +2,7 @@
 const express = require('express');
 const app = express();
 const file = require('./routes/file');
+const path = require('path')
 const fs = require('fs');
 const filePath =  './imported/file.pdf'
 const fileUpload = require('express-fileupload')
@@ -11,7 +12,6 @@ const Buffer = require('buffer').Buffer;
 const ipfsClient = require('ipfs-http-client');
 const dotenv = require('dotenv').config()
 
-
 const {plainAddPlaceholder} = require('node-signpdf')
 const signer = require('node-signpdf');
 
@@ -20,9 +20,9 @@ const base64 = require('base-64');
 const secrets = process.env.INFURA_IPFS_PROJECT_ID + ':' + process.env.INFURA_IPFS_PROJECT_SECRET;
 const encodedSecrets = base64.encode(secrets)
 
- const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https" , headers: {
-   Authorization: 'Basic ' + encodedSecrets
- }})
+//  const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https" , headers: {
+//    Authorization: 'Basic ' + encodedSecrets
+//  }})
 
 
 const signDocument = async(pdf, cert, pwd) => {
@@ -41,9 +41,9 @@ const signDocument = async(pdf, cert, pwd) => {
 
     const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
 
-    // fs.writeFileSync('./exported/file.pdf', signedPdf)
-    const redirecturl = await saveToIpfs(signedPdf);
-    console.log(redirecturl);
+    fs.writeFileSync('./exported/file.pdf', signedPdf)
+    // const redirecturl = await saveToIpfs(test);
+    // console.log(redirecturl);
 
 }
 
@@ -59,33 +59,50 @@ saveToIpfs = async(file) => {
       }
     });
   }
-
-// create application/json parser
-var jsonParser = bodyParser.json()
  
 // create application/x-www-form-urlencoded parser
 var urlencodedParser = bodyParser.urlencoded({ extended: true })
 app.use(cors())
 app.use(urlencodedParser);
-app.use(bodyParser.json({ limit: '10mb'}));
+app.use(bodyParser.json({ limit: '30mb'}));
 app.use(
     bodyParser.urlencoded({
-      limit: '10mb',
+      limit: '30mb',
       extended: true,
       parameterLimit: 50000
     })
   );
-  
 
+app.get('/download', (req, res) => {
+  res.download('./exported/file.pdf', function(error) {
+    if(err)
+    {
+      console.log('an error occured while sending back the signed file: ');
+      console.log(err.message);
+    }
+    else
+    {
+      console.log('file successfuly signed!')
+    }
+  })
+})
 
+app.get('/readfile', (req, res) => {
+  var options = {
+    root: path.join(__dirname)
+  };
 
-// app.use(fileUpload);
-
-app.get('/hello', (req, res) => {
-    console.log('?')
-
-    res.send('???');
-    res.status(200);
+  res.sendFile('./exported/file.pdf',options, function(err) {
+    if(err)
+    {
+      console.log('an error occured while sending back the signed file: ');
+      console.log(err.message);
+    }
+    else
+    {
+      console.log('file successfuly signed!')
+    }
+  })
 })
 
 // not receiving file
@@ -95,9 +112,24 @@ app.post('/sign', cors(), async (req, res) => {
     const pdf = Buffer(req.body.pdf.data);
     const cert = Buffer(req.body.cert.data);
     const pwd = req.body.pwd
-    await signDocument(pdf, cert, pwd)
+    const file = await signDocument(pdf, cert, pwd)
+
+    var options = {
+      root: path.join(__dirname)
+  };
+  
     res.status(200);
-    res.send('done');
+    res.sendFile('./exported/file.pdf',options, function(err) {
+      if(err)
+      {
+        console.log('an error occured while sending back the signed file: ');
+        console.log(err.message);
+      }
+      else
+      {
+        console.log('file successfuly signed!')
+      }
+    })
 })
 
 app.listen(5000, () => {console.log('Server started on port 5000')})

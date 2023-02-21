@@ -41,7 +41,8 @@ class App extends Component {
       ipfsRedirectUrl: "",
       cid: "",
       fileSignature: "",
-      signedFileBuffer: null
+      signedFileBuffer: null,
+      response : null
     }
   }
 
@@ -90,6 +91,7 @@ class App extends Component {
   }
 
   sign = async(pdf, cert, pwd) => {
+    //client-side signature (problems with serialization of the signed file)
   //   const pdfWithPlaceholder = await plainAddPlaceholder({
   //     pdfBuffer: pdf,
   //     reason: 'teste',
@@ -110,21 +112,16 @@ class App extends Component {
 
   console.log('sending request for signpdf');
 
-
+  //server-side signing (response handling issues)
   await this.sendFileForSign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
-
-    //adds a widget to the pdf but isn't considered a signature by Acrobat
-    // read pdf from file using fs instead of buffer
-    // console.log("saving to Ipfs...") 
-    // this.saveToIpfs(signedPdf);
-    // console.log("finished!");
+  
+  await this.saveToIpfs(this.state.response);
   }
 
+  //sends a signature request to the server and returns a signed file
   sendFileForSign = async(pdf, cert, pwd) => {
-    console.log('your file')
-
-    console.log(pdf);
-    axios({
+   
+    await axios({
       withCredentials: false,
       method: "POST",
       url: 'http://localhost:5000/sign',
@@ -136,12 +133,17 @@ class App extends Component {
         "cert": cert,
         "pwd": pwd
       }
-    }).then(res => console.log(res));
+    }).then(res => this.state.response = Buffer(res.data)); //wrong data?
   }
+
 
   //uploads a buffered file to ipfs
   //return cid (hash)
   saveToIpfs = async(file) => {
+
+    console.log('signed file: ');
+    console.log(file)
+
     await ipfs.add(file, async (error, result) => {
       if(error)
         console.log('error! Failed to upload to IPFS: ' + error)
