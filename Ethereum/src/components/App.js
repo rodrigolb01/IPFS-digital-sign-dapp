@@ -92,35 +92,34 @@ class App extends Component {
 
   sign = async(pdf, cert, pwd) => {
     //client-side signature (problems with serialization of the signed file)
-  //   const pdfWithPlaceholder = await plainAddPlaceholder({
-  //     pdfBuffer: pdf,
-  //     reason: 'teste',
-  //     contactInfo : 'rodrigolb01@gmail.com',
-  //     name : 'Rodrigo Linhares',
-  //     location : 'Algum lugar',
-  // })
-  // // sign the doc
-  // const options = {
-  //   asn1StrictParsing: false,
-  //   passphrase: pwd
-  // }
+    //   const pdfWithPlaceholder = await plainAddPlaceholder({
+    //     pdfBuffer: pdf,
+    //     reason: 'teste',
+    //     contactInfo : 'rodrigolb01@gmail.com',
+    //     name : 'Rodrigo Linhares',
+    //     location : 'Algum lugar',
+    // })
+    // // sign the doc
+    // const options = {
+    //   asn1StrictParsing: false,
+    //   passphrase: pwd
+    // }
 
-  // console.log("options:");
-  // console.log("Pwd: " + pwd);
-  
-  // const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
+    // console.log("options:");
+    // console.log("Pwd: " + pwd);
+    
+    // const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
 
-  console.log('sending request for signpdf');
+    console.log('sending request for signpdf');
 
-  //server-side signing (response handling issues)
-  await this.sendFileForSign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
-  
-  await this.saveToIpfs(this.state.response);
+    //server-side signing (response handling issues)
+    await this.sendFileForSign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
+    
+    await this.saveToIpfs(this.state.response);
   }
 
   //sends a signature request to the server and returns a signed file
   sendFileForSign = async(pdf, cert, pwd) => {
-   
     await axios({
       withCredentials: false,
       method: "POST",
@@ -133,7 +132,7 @@ class App extends Component {
         "cert": cert,
         "pwd": pwd
       }
-    }).then(res => this.state.response = Buffer(res.data)); //wrong data?
+    }).then(res => this.state.response = Buffer(res.data.file)); 
   }
 
 

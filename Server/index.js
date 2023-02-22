@@ -41,24 +41,21 @@ const signDocument = async(pdf, cert, pwd) => {
 
     const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
 
-    fs.writeFileSync('./exported/file.pdf', signedPdf)
-    // const redirecturl = await saveToIpfs(test);
-    // console.log(redirecturl);
-
+    return signedPdf
 }
 
-saveToIpfs = async(file) => {
-    await ipfs.add(file, async (error, result) => {
-      if(error)
-        console.log('error! Failed to upload to IPFS: ' + error)
-      if(result)
-      {
-        const cid = result[0].hash;
+// saveToIpfs = async(file) => {
+//     await ipfs.add(file, async (error, result) => {
+//       if(error)
+//         console.log('error! Failed to upload to IPFS: ' + error)
+//       if(result)
+//       {
+//         const cid = result[0].hash;
 
-        return(`https://ipfs.stibits.com/${cid}`)
-      }
-    });
-  }
+//         return(`https://ipfs.stibits.com/${cid}`)
+//       }
+//     });
+//   }
  
 // create application/x-www-form-urlencoded parser
 var urlencodedParser = bodyParser.urlencoded({ extended: true })
@@ -105,7 +102,6 @@ app.get('/readfile', (req, res) => {
   })
 })
 
-// not receiving file
 app.post('/sign', cors(), async (req, res) => { 
     console.log('request received')
 
@@ -113,23 +109,13 @@ app.post('/sign', cors(), async (req, res) => {
     const cert = Buffer(req.body.cert.data);
     const pwd = req.body.pwd
     const file = await signDocument(pdf, cert, pwd)
-
-    var options = {
-      root: path.join(__dirname)
-  };
   
-    res.status(200);
-    res.sendFile('./exported/file.pdf',options, function(err) {
-      if(err)
+    fs.writeFileSync('./exported/file.pdf', Buffer(req.body.pdf.data))
+    res.send(
       {
-        console.log('an error occured while sending back the signed file: ');
-        console.log(err.message);
+        file: file
       }
-      else
-      {
-        console.log('file successfuly signed!')
-      }
-    })
+    )
 })
 
 app.listen(5000, () => {console.log('Server started on port 5000')})
