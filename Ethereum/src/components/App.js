@@ -176,8 +176,6 @@ class App extends Component {
     
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      console.log('file as read by the window FileReader: ');
-      console.log(reader.result)
       this.setState({fileBuffer : Buffer(reader.result)})
     }
    

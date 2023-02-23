@@ -7,6 +7,7 @@ import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
 import { Buffer } from 'buffer';
 import { encode as base64_encode } from 'base-64';
 import { create } from 'ipfs-http-client'
+import axios from 'axios';
 
 const secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
 const encodedSecrets = base64_encode(secrets)
@@ -25,7 +26,7 @@ const ipfsHttpClient = create({
 
 const { SystemProgram, Keypair } = web3;
 
-// Create a keypair for the account that will hold the GIF data.
+// Create a keypair for the account that will hold the file hashes
 const arr = Object.values(kp._keypair.secretKey)
 const secret = new Uint8Array(arr)
 const baseAccount = web3.Keypair.fromSecretKey(secret)
@@ -47,6 +48,9 @@ const App = () => {
   const [inputValue, setInputValue] = useState('');
   const [hashList, setHashList] = useState([]);
   const [file, setFile] = useState(Buffer(''));
+  const [cert, setCert] = useState(Buffer(''));
+  const [certPwd, setCertPwd] = useState('');
+  const [signedFile, setSignedFile] = useState(Buffer(''));
   const [cid, setCid] = useState("");
   const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
 
@@ -120,21 +124,73 @@ const App = () => {
     const reader = new window.FileReader();
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      setFile(reader.result)
+      setFile(Buffer(reader.result))
     }
   }
 
-  const sendFileToIpfs = async () => {
+  const captureCert = (e) => {
+    e.preventDefault();
+    const data = e.target.files[0];
+    const reader = new window.FileReader();
+    reader.readAsArrayBuffer(data);
+    reader.onloadend = () => {
+      setCert(Buffer(reader.result))
+    }
+  }
 
-    // console.log('I know your secret: ' + process.env.REACT_APP_INFURA_IPFS_PROJECT_ID);
+  const handleCertPwdChange = (e) => {
+    e.preventDefault();
+    setCertPwd(e.target.value)
+  }
 
+  const sendFile = async () => {
     if (!file) {
       console.log("No file given!")
       return
     }
 
+    await sendFileForSign(file, cert, certPwd );
+  }
+
+   //sends a signature request to the server and returns a signed file
+  const sendFileForSign = async(pdf, cert, pwd) => {
+    console.log('your file:');
+    console.log(pdf);
+    console.log('your cert');
+    console.log(cert)
+    console.log('password');
+    console.log(pwd)
+
+    await axios({
+      withCredentials: false,
+      method: "POST",
+      url: 'http://localhost:5000/sign',
+      headers: { 
+        "Content-Type": "application/json",
+      },
+      data: {
+        "pdf": pdf,
+        "cert": cert,
+        "pwd": pwd
+      }
+    })
+    .then(async res => 
+      {
+        console.log('signed file: ');
+        console.log(res.data.file);
+        await sendToIpfs(Buffer(res.data.file));
+        setSignedFile(Buffer(res.data.file));
+      })
+    .catch(err => 
+      {
+        console.log('Error while signing file : ' + err)
+        return;
+      }); 
+  }
+
+  const sendToIpfs = async(signedFile) => {
     try {
-      await ipfsHttpClient.add(file).then(async res => {
+      await ipfsHttpClient.add(signedFile).then(async res => {
         setCid(res.path);
         setIpfsRedirectUrl(`https://ipfs.stibits.com/${res.path}`);
         await storeHash(res.path);
@@ -143,6 +199,7 @@ const App = () => {
       console.log(error);
       return;
     }
+    console.log('file stored sucessfuly')
   }
 
   const storeHash = async (hash) => {
@@ -218,13 +275,34 @@ const App = () => {
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              sendFileToIpfs();
+              sendFile();
             }}
           >
+            <div>
+              <label>
+                Upload your pdf
+              </label>
+              <input
+                type="file"
+                placeholder="Upload you file"
+                onChange={captureFile}
+              />
+            </div>
+            <div>
+              <label>
+                Upload your certificate
+              </label>
+              <input
+                type="file"
+                placeholder="Upload your certificate"
+                onChange={captureCert}
+              />
+            </div>
             <input
-              type="file"
-              placeholder="Upload you file"
-              onChange={captureFile}
+            type="text"
+            placeholder="Password"
+            onChange={handleCertPwdChange}
+            value={certPwd}
             />
             <button type="submit" className="cta-button submit-gif-button">
               Submit
