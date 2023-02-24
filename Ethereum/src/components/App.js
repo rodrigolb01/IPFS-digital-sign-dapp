@@ -38,6 +38,7 @@ class App extends Component {
       certificateBuffer: null,
       certificatePassword: "",
       ipfsRedirectUrl: "",
+      ipfsRedirectUrl1: "",
       cid: "",
       fileSignature: "",
       signedFile : null,
@@ -120,19 +121,19 @@ class App extends Component {
         console.log('error! Failed to upload to IPFS: ' + error)
       if(result)
       {
-        const fingerprint = result[0].hash;
-        const res = await this.storeHash(fingerprint);
+        const fileHash = result[0].hash;
+        const res = await this.storeHash(fileHash);
         if(!res.hash)
         {
           console.log('Transaction canceled');
-          this.state.receipt = "";
           return;
         }
 
         this.setState(
           {
-            cid: fingerprint,
-            ipfsRedirectUrl: `https://ipfs.stibits.com/${fingerprint}`,
+            cid: fileHash,
+            ipfsRedirectUrl: `https://ipfs.stibits.com/${fileHash}`,
+            ipfsRedirectUrl1: `https://ipfsexplorer.online/ipfs/${fileHash}`,
             receipt: `https://goerli.etherscan.io/tx/${res.hash}`
           }
         );
@@ -235,9 +236,17 @@ class App extends Component {
                       <h4>
                         {this.state.ipfsRedirectUrl !== "" ? "Your file" : ""}
                       </h4>
-                      <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
-                        {this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}
-                      </a>
+                      <div className='link-container'>
+                        <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
+                          {this.state.ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
+                        </a>
+                      </div>
+                      <br/>
+                      <div className='link-container'>
+                         <a href={this.state.ipfsRedirectUrl1 !== "" ? this.state.ipfsRedirectUrl1 : ""}>
+                          {this.state.ipfsRedirectUrl1 !== "" ? "ipfsexplorer.online" : ""}
+                        </a>
+                      </div>                     
                     </div>
                     <div className="receipt-box">
                       <h4>
