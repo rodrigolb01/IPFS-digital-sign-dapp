@@ -326,7 +326,7 @@ const App = () => {
       {/* This was solely added for some styling fanciness */}
       <div className={walletAddress ? 'authed-container' : 'container'}>
         <div className="header-container">
-          <p className="header">🖼 File Uploader</p>
+          <p className="header">File Uploader</p>
           <p className="sub-text">
             View your IPFS File hashes in solana
           </p>

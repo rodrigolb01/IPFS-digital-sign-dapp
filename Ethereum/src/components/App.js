@@ -7,7 +7,6 @@ import axios from 'axios'
 
 require('dotenv').config();
 
-// const plainAddPlaceholder = require('../node_modules/node-signpdf/dist/helpers/plainAddPlaceholder').default;
 const {plainAddPlaceholder} = require('node-signpdf')
 
 
@@ -41,8 +40,8 @@ class App extends Component {
       ipfsRedirectUrl: "",
       cid: "",
       fileSignature: "",
-      signedFileBuffer: null,
-      response : null
+      signedFile : null,
+      receipt : ""
     }
   }
 
@@ -84,42 +83,16 @@ class App extends Component {
     }
   }
 
-  onSubmitSign = async(e) => {
+  onSubmit = async(e) => {
     e.preventDefault();
 
     await this.sign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
-  }
-
-  sign = async(pdf, cert, pwd) => {
-    //client-side signature (problems with serialization of the signed file)
-    //   const pdfWithPlaceholder = await plainAddPlaceholder({
-    //     pdfBuffer: pdf,
-    //     reason: 'teste',
-    //     contactInfo : 'rodrigolb01@gmail.com',
-    //     name : 'Rodrigo Linhares',
-    //     location : 'Algum lugar',
-    // })
-    // // sign the doc
-    // const options = {
-    //   asn1StrictParsing: false,
-    //   passphrase: pwd
-    // }
-
-    // console.log("options:");
-    // console.log("Pwd: " + pwd);
     
-    // const signedPdf = signer.default.sign(pdfWithPlaceholder, cert, options);
-
-    console.log('sending request for signpdf');
-
-    //server-side signing (response handling issues)
-    await this.sendFileForSign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
-    
-    await this.saveToIpfs(this.state.response);
+    await this.saveToIpfs(this.state.signedFile);
   }
 
   //sends a signature request to the server and returns a signed file
-  sendFileForSign = async(pdf, cert, pwd) => {
+  sign = async(pdf, cert, pwd) => {
     await axios({
       withCredentials: false,
       method: "POST",
@@ -132,14 +105,13 @@ class App extends Component {
         "cert": cert,
         "pwd": pwd
       }
-    }).then(res => this.state.response = Buffer(res.data.file)); 
+    }).then(res => this.state.signedFile = Buffer(res.data.file)); 
   }
 
 
   //uploads a buffered file to ipfs
   //return cid (hash)
   saveToIpfs = async(file) => {
-
     console.log('signed file: ');
     console.log(file)
 
@@ -149,12 +121,19 @@ class App extends Component {
       if(result)
       {
         const fingerprint = result[0].hash;
-        await this.saveFingerPrintToEth(fingerprint);
+        const res = await this.storeHash(fingerprint);
+        if(!res.hash)
+        {
+          console.log('Transaction canceled');
+          this.state.receipt = "";
+          return;
+        }
 
         this.setState(
           {
             cid: fingerprint,
-            ipfsRedirectUrl: `https://ipfs.stibits.com/${fingerprint}`
+            ipfsRedirectUrl: `https://ipfs.stibits.com/${fingerprint}`,
+            receipt: `https://goerli.etherscan.io/tx/${res.hash}`
           }
         );
       }
@@ -182,7 +161,7 @@ class App extends Component {
   }
 
   
-  //upload a valid x509 certificate to the browser and save in the state as a buffer
+  //buffer a x509 certificate in p12 format
   captureCertificate = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
@@ -193,16 +172,22 @@ class App extends Component {
     }
   }
 
-  //contract manipulation functions
-  saveFingerPrintToEth = async(hash) => {
+  //smart contract functions
+  storeHash = async(hash) => {
+    let res;
     try {
-      await this.state.fileStorageContractInstance.set(hash);
+      res = await this.state.fileStorageContractInstance.set(hash);
     } catch (error) {
-      window.alert(error);
+      console.log('Transaction rejected');
+      console.log(error);
+      return 0;
     }
+    console.log('transaction sucessful');
+    console.log(res);
+    return res;
   }
 
-  retrieveFingerPrintFromEth = async() => {
+  retrieveHash = async() => {
     try {
       const result = await this.state.fileStorageContractInstance.get();
       return result;
@@ -225,7 +210,7 @@ class App extends Component {
                   <img src={logo} className="App-logo" alt="logo" />
                   <p>&nbsp;</p>
                   <h2>Diploma Management System</h2>
-                  <form onSubmit={this.onSubmitSign}>
+                  <form onSubmit={this.onSubmit}>
                     <div>
                       <label>upload pdf</label>
                       <input type="file" onChange={this.captureFileForSign}/>
@@ -242,26 +227,25 @@ class App extends Component {
                   </form>
                   <p>&nbsp;</p>
                   <div>
-                    {this.state.fileSignature !== "" ? "your file has been signed and registered in the Ethereum blockchain. You can validate it though a pdf reader like Acrobat or Foxit" : ""}
+                    {this.state.fileSignature !== "" ? "your file has been signed and registered in the Ethereum blockchain." : ""}
                   </div>
                   <p>&nbsp;</p>
                   <div className="results">
                     <div>
                       <h4>
-                        {this.state.ipfsRedirectUrl !== "" ? "Your file has been uploaded to Ipfs use the link below to access it" : ""}
+                        {this.state.ipfsRedirectUrl !== "" ? "Your file" : ""}
                       </h4>
                       <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
                         {this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}
                       </a>
                     </div>
-                    <div className="results">
-                      <h4>{this.state.cid === "" ? "" : "Your Ipfs CID:"}</h4>
-                      <h5 style={{color: "red"}}>      
-                          {this.state.cid !== "" ? 
-                        "The CID is the identifier of your file in the IPFS. It's very important that you don't lose this information otherwise you might not be able to access your file"
-                        : ""}
-                      </h5>
-                      <h3>{this.state.cid === "" ? "" : this.state.cid}</h3>
+                    <div className="receipt-box">
+                      <h4>
+                        {this.state.receipt !== "" ? "View your transaction on Etherscan" : ""}
+                      </h4>
+                      <a href={this.state.receipt !== "" ? this.state.receipt : ""}>
+                        {this.state.receipt !== "" ? this.state.receipt : ""}
+                      </a>
                     </div>
                   </div>
                 </div>
