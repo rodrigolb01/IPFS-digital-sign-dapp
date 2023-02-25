@@ -46,7 +46,6 @@ const opts = {
 
 const App = () => {
   const [walletAddress, setWalletAddress] = useState(null);
-  const [inputValue, setInputValue] = useState('');
   const [hashList, setHashList] = useState([]);
   const [file, setFile] = useState(Buffer(''));
   const [cert, setCert] = useState(Buffer(''));
