@@ -1,6 +1,5 @@
 .App {
   height: 100vh;
-  background-color: #1a202c;
   overflow: scroll;
   text-align: center;
 }
@@ -22,14 +21,13 @@
 
 .header {
   margin: 0;
-  font-size: 50px;
-  font-weight: bold;
-  color: white;
+  font-size: 30px;
+  color: rgb(24, 24, 24);
 }
 
 .sub-text {
   font-size: 25px;
-  color: white;
+  color: rgb(24, 24, 24);
 }
 
 .gradient-text {

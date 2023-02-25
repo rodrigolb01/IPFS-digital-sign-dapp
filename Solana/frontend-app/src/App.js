@@ -1,4 +1,5 @@
 import './App.css';
+import logo from './logo.png'
 import React, { useEffect, useState } from 'react';
 import kp from './keypair.json'
 import idl from './idl.json';
@@ -50,9 +51,7 @@ const App = () => {
   const [file, setFile] = useState(Buffer(''));
   const [cert, setCert] = useState(Buffer(''));
   const [certPwd, setCertPwd] = useState('');
-  const [signedFile, setSignedFile] = useState(Buffer(''));
-  const [cid, setCid] = useState("");
-  const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
+  const [receipt, setReceipt] = useState("");
 
   const checkIfwalletIsConnected = async () => {
     try {
@@ -154,13 +153,6 @@ const App = () => {
 
    //sends a signature request to the server and returns a signed file
   const sendFileForSign = async(pdf, cert, pwd) => {
-    console.log('your file:');
-    console.log(pdf);
-    console.log('your cert');
-    console.log(cert)
-    console.log('password');
-    console.log(pwd)
-
     await axios({
       withCredentials: false,
       method: "POST",
@@ -179,7 +171,6 @@ const App = () => {
         console.log('signed file: ');
         console.log(res.data.file);
         await sendToIpfs(Buffer(res.data.file));
-        setSignedFile(Buffer(res.data.file));
       })
     .catch(err => 
       {
@@ -191,8 +182,6 @@ const App = () => {
   const sendToIpfs = async(signedFile) => {
     try {
       await ipfsHttpClient.add(signedFile).then(async res => {
-        setCid(res.path);
-        setIpfsRedirectUrl(`https://ipfs.stibits.com/${res.path}`);
         await storeHash(res.path);
       })
     } catch (error) {
@@ -205,21 +194,27 @@ const App = () => {
   const storeHash = async (hash) => {
 
     console.log('your ipfs hash:', hash);
+
+    let res;
     try {
       const provider = getProvider();
       const program = new Program(idl, programID, provider);
 
-      await program.rpc.addGif(hash, {
+      res = await program.rpc.addGif(hash, {
         accounts: {
           baseAccount: baseAccount.publicKey,
           user: provider.wallet.publicKey,
         },
       });
-      console.log("Hash successfully sent to program")
+      console.log("Transaction sucessful")
+      setReceipt(`https://explorer.solana.com/tx/${res}?cluster=devnet`)
+      console.log(receipt);
 
       await getHashList();
     } catch (error) {
       console.log("Error sending Hash:", error)
+      res = 0;
+      return;
     }
   };
 
@@ -271,7 +266,8 @@ const App = () => {
     // Otherwise, we're good! Account exists. User can submit files.
     else {
       return (
-        <div className="connected-container">
+        <div >
+          <p>&nbsp;</p>
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -279,9 +275,7 @@ const App = () => {
             }}
           >
             <div>
-              <label>
-                Upload your pdf
-              </label>
+              <label>upload pdf</label>
               <input
                 type="file"
                 placeholder="Upload you file"
@@ -289,25 +283,32 @@ const App = () => {
               />
             </div>
             <div>
-              <label>
-                Upload your certificate
-              </label>
+              <label>upload your certificate</label>
               <input
                 type="file"
                 placeholder="Upload your certificate"
                 onChange={captureCert}
               />
             </div>
-            <input
-            type="text"
-            placeholder="Password"
-            onChange={handleCertPwdChange}
-            value={certPwd}
-            />
-            <button type="submit" className="cta-button submit-gif-button">
-              Submit
-            </button>
+            <div>
+              <label>certificate password</label>
+              <input
+                type="text"
+                placeholder="Password"
+                onChange={handleCertPwdChange}
+                value={certPwd}
+              />
+            </div>            
+            <input title='sign' type="submit"/>
           </form>
+          <p>&nbsp;</p>
+          <div className='results'>
+          <h4>
+            {receipt !== "" ? 'View your transaction in Etherscan' : ""}
+          </h4>
+          <br></br>
+          {receipt !== "" ? <a href={receipt}>{receipt}</a> : ""}
+          </div>
           <div className="gif-grid">
             {/* We use index as the key instead, also, the src is now item.gifLink */}
             {hashList.map((item, index) => (
@@ -326,10 +327,8 @@ const App = () => {
       {/* This was solely added for some styling fanciness */}
       <div className={walletAddress ? 'authed-container' : 'container'}>
         <div className="header-container">
-          <p className="header">File Uploader</p>
-          <p className="sub-text">
-            View your IPFS File hashes in solana
-          </p>
+          <img src={logo} className="App-logo" alt="logo" />
+          <h2 className="header">Diploma Management System</h2>
           {/* Add the condition to show this only if we don't have a wallet address */}
           {!walletAddress ? renderNotConnectedContainer() : renderConnectedContainer()}
         </div>

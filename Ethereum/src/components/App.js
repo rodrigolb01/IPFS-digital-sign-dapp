@@ -221,7 +221,7 @@ class App extends Component {
                       <input type="file" onChange={this.captureCertificate}></input>
                     </div>
                     <div>
-                      <lavel>certificate password</lavel>
+                      <label>certificate password</label>
                       <input type="text" onChange={this.setCertificatePassword} value={this.state.certificatePassword}></input>
                     </div>
                     <input type="submit" title='sign'/>
@@ -250,11 +250,9 @@ class App extends Component {
                     </div>
                     <div className="receipt-box">
                       <h4>
-                        {this.state.receipt !== "" ? "View your transaction on Etherscan" : ""}
+                        {this.state.receipt !== "" ? "View your transaction in Etherscan" : ""}
                       </h4>
-                      <a href={this.state.receipt !== "" ? this.state.receipt : ""}>
-                        {this.state.receipt !== "" ? this.state.receipt : ""}
-                      </a>
+                      {this.state.receipt ? <a href={this.state.receipt}>{this.state.receipt}</a> : ""}
                     </div>
                   </div>
                 </div>
