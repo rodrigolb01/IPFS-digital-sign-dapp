@@ -1,8 +1,8 @@
-import React, { Component } from 'react';
+import React,  { Component , useEffect} from 'react';
 import logo from '../logo.png';
 import './App.css';
 import { encode as base64_encode } from 'base-64';
-import File from '../abis/File.json';
+import Files from '../abis/Files.json';
 import axios from 'axios'
 
 require('dotenv').config();
@@ -25,7 +25,7 @@ const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https
 
 //Must be Goerli (5)
 const networkId = Number(process.env.REACT_APP_ETHEREUM_TESTNET);
-const fileStorageContractAddress = require('../abis/File.json').networks[networkId].address.toString();
+const fileStorageContractAddress = require('../abis/Files.json').networks[networkId].address.toString();
 
 class App extends Component {
   constructor(props) {
@@ -33,6 +33,7 @@ class App extends Component {
     this.state = {
       account: null,
       provider: null,
+      hashList: [],
       fileStorageContractInstance: null,
       fileBuffer: null,
       certificateBuffer: null,
@@ -48,6 +49,11 @@ class App extends Component {
 
   async componentWillMount(){
     await this.loadWeb3();
+    console.log('component will mount')
+  }
+  
+  async componentDidMount(){
+    console.log('component did mount')
   }
 
   //connect to Ethereum via Metamask and set access to deployed contract
@@ -70,17 +76,34 @@ class App extends Component {
       console.log(this.state.provider);
 
       //get contract from Ethereum 
-      const deployedFileStorageContract = await new ethers.Contract(fileStorageContractAddress, File.abi, this.state.provider.getSigner());
+      const deployedFileStorageContract = await new ethers.Contract(fileStorageContractAddress, Files.abi, this.state.provider.getSigner());
 
       await this.setState({
         fileStorageContractInstance : deployedFileStorageContract,
       });
+
+      await this.fetchFiles();
 
       console.log(this.state.storageFileContractInstance)
     }
     else 
     {
       window.alert("Error! MetaMask is not installed, cannot connect to web3");
+    }
+  }
+
+  fetchFiles = async() => {
+    try {
+      const res = await this.state.fileStorageContractInstance.get();
+      this.state.hashList = res;
+
+      console.log('your files');
+      console.log(res);
+      
+    } catch (error) {
+      console.log('failed to fetch files');
+      console.log(error);
+      return;
     }
   }
 
@@ -254,6 +277,18 @@ class App extends Component {
                       </h4>
                       {this.state.receipt ? <a href={this.state.receipt}>{this.state.receipt}</a> : ""}
                     </div>
+                  </div>
+                  <div className='your-files'>
+                    {
+                    this.state.hashList? 
+                     "No files here" 
+                    :
+                      this.state.hashList.map((e, index) => (
+                        <div className="item" key={index}>
+                        <a href={`https://ipfs.stibits.com/${e}`}>You file</a>
+                      </div>
+                      ))
+                    }
                   </div>
                 </div>
               </main>
