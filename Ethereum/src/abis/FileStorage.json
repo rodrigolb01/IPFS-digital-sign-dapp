@@ -1,0 +1,56 @@
+{
+  "contractName": "FileStorage",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "_fileHash",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "_fileName",
+          "type": "string"
+        }
+      ],
+      "name": "set",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "get",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "string",
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "hash",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct FileStorage.File[]",
+          "name": "",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "networks": {
+    "5": {
+      "events": {},
+      "links": {},
+      "address": "0x014ADe5fBBaCCc120b026f279A1802c94a5eb414",
+      "transactionHash": "0x64c9b727c90703f2f2d0cd35590e6f37a775e3521fcd9f703d83d6e7eb796575"
+    }
+  }
+}

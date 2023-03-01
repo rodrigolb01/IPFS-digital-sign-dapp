@@ -152,6 +152,8 @@ const App = () => {
 
    //sends a signature request to the server and returns a signed file
   const sendFileForSign = async(pdf, cert, pwd) => {
+    console.log('your file before signing');
+    console.log(pdf)
     await axios({
       withCredentials: false,
       method: "POST",
@@ -167,8 +169,9 @@ const App = () => {
     })
     .then(async res => 
       {
-        console.log('signed file: ');
-        console.log(res.data.file);
+        console.log('your file after signing');
+        console.log(res)
+
         await sendToIpfs(Buffer(res.data.file));
       })
     .catch(err => 
@@ -182,6 +185,8 @@ const App = () => {
     try {
       await ipfsHttpClient.add(signedFile).then(async res => {
         await storeHash(res.path);
+        console.log('ipfs Hash: ');
+        console.log(res)
       })
     } catch (error) {
       console.log(error);

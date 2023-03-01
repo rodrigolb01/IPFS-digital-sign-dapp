@@ -1,90 +1,81 @@
-import React,  { Component , useEffect} from 'react';
+import React,  {useEffect, useState} from 'react';
 import logo from '../logo.png';
 import './App.css';
 import { encode as base64_encode } from 'base-64';
-import Files from '../abis/Files.json';
+import FileStorage from '../abis/FileStorage.json';
+import { create } from 'ipfs-http-client'
 import axios from 'axios'
 
 require('dotenv').config();
 
-const {plainAddPlaceholder} = require('node-signpdf')
-
-
-const rs = require('jsrsasign');
-const rsu = require('jsrsasign-util');
-
 const ethers = require('ethers');
-const ipfsClient = require('ipfs-http-client');
 
 const secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
 const encodedSecrets = base64_encode(secrets)
 
-const ipfs = ipfsClient({host: "ipfs.infura.io", port: "5001",  protocol: "https" , headers: {
-  Authorization: 'Basic ' + encodedSecrets
-}})
+const ipfsHttpClient = create({
+  host: "ipfs.infura.io", 
+  port: "5001", 
+  protocol: "https" , 
+  headers: {
+    Authorization: 'Basic ' + encodedSecrets
+  }
+})
 
 //Must be Goerli (5)
 const networkId = Number(process.env.REACT_APP_ETHEREUM_TESTNET);
-const fileStorageContractAddress = require('../abis/Files.json').networks[networkId].address.toString();
+const fileStorageContractAddress = require('../abis/FileStorage.json').networks[networkId].address.toString();
 
-class App extends Component {
-  constructor(props) {
-    super(props);
-    this.state = {
-      account: null,
-      provider: null,
-      hashList: [],
-      fileStorageContractInstance: null,
-      fileBuffer: null,
-      certificateBuffer: null,
-      certificatePassword: "",
-      ipfsRedirectUrl: "",
-      ipfsRedirectUrl1: "",
-      cid: "",
-      fileSignature: "",
-      signedFile : null,
-      receipt : ""
-    }
-  }
+var contract;
 
-  async componentWillMount(){
-    await this.loadWeb3();
-    console.log('component will mount')
-  }
-  
-  async componentDidMount(){
-    console.log('component did mount')
-  }
+const App = () => {
+    const [hashList, setHashList] = useState([]);
+    const [fileName, setFileName] = useState('');
+    const [file, setFile] = useState(Buffer(''));
+    const [signedFile, setSignedFile] = useState(Buffer(''));
+    const [cert, setCert] = useState(Buffer(''));
+    const [certPassword, setCertPassword] = useState("");
+    const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
+    const [cid, setCid] = useState("");
+    const [receipt, setReceipt] = useState("");
 
-  //connect to Ethereum via Metamask and set access to deployed contract
-  loadWeb3 = async() => {
+    useEffect(() => {
+        const onLoad = async() => {
+            console.log('starting up web3')
+            await loadWeb3();
+        }
+        window.addEventListener('load', onLoad);
+        return () => window.removeEventListener('load', onLoad);
+    })
+
+    //connect to Ethereum via Metamask and set access to deployed contract
+  const loadWeb3 = async() => {
     if(typeof window.ethereum !== "undefined")
     {
-      this.setState({account : await window.ethereum.request({method: "eth_requestAccounts"}) })
+      const account = await window.ethereum.request({method: "eth_requestAccounts"});
       console.log("your account");
-      console.log(this.state.account);
+      console.log(account);
     }
     else
     {
       window.alert("Error! Unable to recover the signer");
+      return;
     }
 
     if(typeof window.web3 !== "undefined")
     {
-      this.setState({provider : new ethers.providers.Web3Provider(window.ethereum)})
+      const provider = new ethers.providers.Web3Provider(window.ethereum)
       console.log("your provider");
-      console.log(this.state.provider);
+      console.log(provider);
 
       //get contract from Ethereum 
-      const deployedFileStorageContract = await new ethers.Contract(fileStorageContractAddress, Files.abi, this.state.provider.getSigner());
+      const deployedFileStorageContract = await new ethers.Contract(fileStorageContractAddress, FileStorage.abi, provider.getSigner());
 
-      await this.setState({
-        fileStorageContractInstance : deployedFileStorageContract,
-      });
+      contract = deployedFileStorageContract;
+      console.log('your contract')
+      console.log(contract);
 
-      await this.fetchFiles();
-
-      console.log(this.state.storageFileContractInstance)
+      await fetchFiles();
     }
     else 
     {
@@ -92,31 +83,30 @@ class App extends Component {
     }
   }
 
-  fetchFiles = async() => {
+  const fetchFiles = async() => {
     try {
-      const res = await this.state.fileStorageContractInstance.get();
-      this.state.hashList = res;
-
-      console.log('your files');
-      console.log(res);
+      
+      const res = await contract.get();
+      const h = [...res];
+      setHashList(h)
       
     } catch (error) {
-      console.log('failed to fetch files');
+      console.log('failed to load files');
       console.log(error);
       return;
     }
   }
 
-  onSubmit = async(e) => {
+  const onSubmit = async(e) => {
     e.preventDefault();
 
-    await this.sign(this.state.fileBuffer, this.state.certificateBuffer, this.state.certificatePassword);
-    
-    await this.saveToIpfs(this.state.signedFile);
+    await sign(file, cert, certPassword);
   }
 
   //sends a signature request to the server and returns a signed file
-  sign = async(pdf, cert, pwd) => {
+  const sign = async(pdf, cert, pwd) => {
+    console.log("your file before signing")
+    console.log(pdf);
     await axios({
       withCredentials: false,
       method: "POST",
@@ -129,78 +119,80 @@ class App extends Component {
         "cert": cert,
         "pwd": pwd
       }
-    }).then(res => this.state.signedFile = Buffer(res.data.file)); 
+    }).then(async res => 
+      {
+        console.log("your file after signing")
+        console.log(res);
+
+        await saveToIpfs(Buffer(res.data.file));
+      })
   }
 
-
   //uploads a buffered file to ipfs
-  //return cid (hash)
-  saveToIpfs = async(file) => {
-    console.log('signed file: ');
-    console.log(file)
-
-    await ipfs.add(file, async (error, result) => {
-      if(error)
-        console.log('error! Failed to upload to IPFS: ' + error)
-      if(result)
+  //returns file link
+  const saveToIpfs = async(file) => {
+    await ipfsHttpClient.add(file)
+    .then(async res =>
       {
-        const fileHash = result[0].hash;
-        const res = await this.storeHash(fileHash);
-        if(!res.hash)
+        const fileHash = res.path
+        console.log("your ipfs hash")
+        console.log(fileHash)
+        console.log(`file name: ${fileName}`)
+        const txRes = await storeHash(fileHash, fileName);
+        if(!txRes.hash)
         {
           console.log('Transaction canceled');
           return;
         }
 
-        this.setState(
-          {
-            cid: fileHash,
-            ipfsRedirectUrl: `https://ipfs.stibits.com/${fileHash}`,
-            ipfsRedirectUrl1: `https://ipfsexplorer.online/ipfs/${fileHash}`,
-            receipt: `https://goerli.etherscan.io/tx/${res.hash}`
-          }
-        );
+        setCid(fileHash);
+        setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
+        setReceipt(`https://goerli.etherscan.io/tx/${res.hash}`);
+      } 
+    )
+    .catch((error) => 
+      {
+        console.log('error! Failed to upload to IPFS: ' + error)
+        return;
       }
-    });
+    )
   }
 
-  setCertificatePassword = (e) => {
+  const setCertificatePassword = (e) => {
     e.preventDefault();
-    this.setState({
-      certificatePassword : e.target.value
-    })
+    setCertPassword(e.target.value);
   }
 
   //buffering files
-  captureFileForSign = (e) => {
+  const captureFile = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
     
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      this.setState({fileBuffer : Buffer(reader.result)})
+      setFile(Buffer(reader.result));
+      setFileName(data.name)
     }
    
   }
 
-  
   //buffer a x509 certificate in p12 format
-  captureCertificate = (e) => {
+  const captureCertificate = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
     const reader = new window.FileReader();
     reader.readAsArrayBuffer(data);
     reader.onloadend = () => {
-      this.setState({certificateBuffer : Buffer(reader.result)})
+      setCert(Buffer(reader.result));
     }
   }
 
   //smart contract functions
-  storeHash = async(hash) => {
+  const storeHash = async(hash, name) => {
     let res;
     try {
-      res = await this.state.fileStorageContractInstance.set(hash);
+      res = contract.set(hash, name);
     } catch (error) {
       console.log('Transaction rejected');
       console.log(error);
@@ -211,93 +203,67 @@ class App extends Component {
     return res;
   }
 
-  retrieveHash = async() => {
-    try {
-      const result = await this.state.fileStorageContractInstance.get();
-      return result;
-    } catch (error) {
-      window.alert(error);
-    }
-  }
-
-
-  render() {
-    return (
-      <div>
-        <div className='file upload'>
-          <nav className="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
-          </nav>
-          <div className="container-fluid mt-5">
-            <div className="row">
-              <main role="main" className="col-lg-12 d-flex text-center">
-                <div className="content mr-auto ml-auto">
-                  <img src={logo} className="App-logo" alt="logo" />
-                  <p>&nbsp;</p>
-                  <h2>Diploma Management System</h2>
-                  <form onSubmit={this.onSubmit}>
-                    <div>
-                      <label>upload pdf</label>
-                      <input type="file" onChange={this.captureFileForSign}/>
-                    </div>
-                    <div>
-                      <label>upload your certificate</label>
-                      <input type="file" onChange={this.captureCertificate}></input>
-                    </div>
-                    <div>
-                      <label>certificate password</label>
-                      <input type="text" onChange={this.setCertificatePassword} value={this.state.certificatePassword}></input>
-                    </div>
-                    <input type="submit" title='sign'/>
-                  </form>
-                  <p>&nbsp;</p>
+  return(
+    <div>
+      <div className='file upload'>
+        <nav className="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
+        </nav>
+        <div className="container-fluid mt-5">
+          <div className="row">
+            <main role="main" className="col-lg-12 d-flex text-center">
+              <div className="content mr-auto ml-auto">
+                <img src={logo} className="App-logo" alt="logo" />
+                <p>&nbsp;</p>
+                <h2>Diploma Management System</h2>
+                <form onSubmit={onSubmit}>
                   <div>
-                    {this.state.fileSignature !== "" ? "your file has been signed and registered in the Ethereum blockchain." : ""}
+                    <label>upload pdf</label>
+                    <input type="file" onChange={captureFile}/>
                   </div>
-                  <p>&nbsp;</p>
-                  <div className="results">
-                    <div>
-                      <h4>
-                        {this.state.ipfsRedirectUrl !== "" ? "Your file" : ""}
-                      </h4>
-                      <div className='link-container'>
-                        <a href={this.state.ipfsRedirectUrl !== "" ? this.state.ipfsRedirectUrl : ""}>
-                          {this.state.ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
-                        </a>
-                      </div>
-                      <br/>
-                      <div className='link-container'>
-                         <a href={this.state.ipfsRedirectUrl1 !== "" ? this.state.ipfsRedirectUrl1 : ""}>
-                          {this.state.ipfsRedirectUrl1 !== "" ? "ipfsexplorer.online" : ""}
-                        </a>
-                      </div>                     
-                    </div>
-                    <div className="receipt-box">
-                      <h4>
-                        {this.state.receipt !== "" ? "View your transaction in Etherscan" : ""}
-                      </h4>
-                      {this.state.receipt ? <a href={this.state.receipt}>{this.state.receipt}</a> : ""}
-                    </div>
+                  <div>
+                    <label>upload your certificate</label>
+                    <input type="file" onChange={captureCertificate}></input>
                   </div>
-                  <div className='your-files'>
-                    {
-                    this.state.hashList? 
-                     "No files here" 
-                    :
-                      this.state.hashList.map((e, index) => (
-                        <div className="item" key={index}>
-                        <a href={`https://ipfs.stibits.com/${e}`}>You file</a>
-                      </div>
-                      ))
-                    }
+                  <div>
+                    <label>certificate password</label>
+                    <input type="text" placeholder='password' onChange={setCertificatePassword} value={certPassword}></input>
+                  </div>
+                  <input type="submit" title='sign'/>
+                </form>
+                <p>&nbsp;</p>
+                <div className="results">
+                  <div>
+                    <h4>
+                      {ipfsRedirectUrl !== "" ? "Your file" : ""}
+                    </h4>
+                    <div className='link-container'>
+                      <a href={ipfsRedirectUrl !== "" ? ipfsRedirectUrl : ""}>
+                        {ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
+                      </a>
+                    </div>                    
+                  </div>
+                  <div className="receipt-box">
+                    <h4>
+                      {receipt !== "" ? "View your transaction in Etherscan" : ""}
+                    </h4>
+                    {receipt ? <a href={receipt}>{receipt}</a> : ""}
                   </div>
                 </div>
-              </main>
-            </div>
+                <div className='your-files'>
+                  {
+                    hashList.map((file, i) => (
+                      <div className="item" key={i}>                         
+                          <a href={`https://ipfsexplorer.online/ipfs/${file.hash}`}>{file.name}</a>
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            </main>
           </div>
         </div>
       </div>
-    );
-  }
-}
-
+    </div>
+  );
+};
 export default App;
