@@ -1,14 +1,14 @@
 {
   "version": "0.1.0",
-  "name": "myepicproject",
+  "name": "img_storage",
   "instructions": [
     {
-      "name": "startStuffOff",
+      "name": "initialize",
       "accounts": [
         {
-          "name": "baseAccount",
+          "name": "storage",
           "isMut": true,
-          "isSigner": true
+          "isSigner": false
         },
         {
           "name": "user",
@@ -24,22 +24,26 @@
       "args": []
     },
     {
-      "name": "addGif",
+      "name": "addImg",
       "accounts": [
         {
-          "name": "baseAccount",
+          "name": "storage",
           "isMut": true,
           "isSigner": false
         },
         {
           "name": "user",
-          "isMut": true,
+          "isMut": false,
           "isSigner": true
         }
       ],
       "args": [
         {
-          "name": "gifLink",
+          "name": "link",
+          "type": "string"
+        },
+        {
+          "name": "name",
           "type": "string"
         }
       ]
@@ -47,19 +51,15 @@
   ],
   "accounts": [
     {
-      "name": "BaseAccount",
+      "name": "Data",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "totalGifs",
-            "type": "u64"
-          },
-          {
-            "name": "gifList",
+            "name": "images",
             "type": {
               "vec": {
-                "defined": "ItemStruct"
+                "defined": "Img"
               }
             }
           }
@@ -69,23 +69,23 @@
   ],
   "types": [
     {
-      "name": "ItemStruct",
+      "name": "Img",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "gifLink",
+            "name": "link",
             "type": "string"
           },
           {
-            "name": "userAddress",
-            "type": "publicKey"
+            "name": "name",
+            "type": "string"
           }
         ]
       }
     }
   ],
   "metadata": {
-    "address": "GTdmmYgyr7nCZU1DFKN1hEi7D3AVMn2FFQQNkgSeBV7m"
+    "address": "7Fv4B7urUPJKSZ8dfbBjG4JeetcJUasLVHUQ2BrBo2E3"
   }
 }

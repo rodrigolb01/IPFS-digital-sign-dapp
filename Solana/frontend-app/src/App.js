@@ -1,164 +1,142 @@
-import './App.css';
-import logo from './logo.png'
-import React, { useEffect, useState } from 'react';
-import kp from './keypair.json'
-import idl from './idl.json';
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
-import { Program, AnchorProvider, web3 } from '@project-serum/anchor';
-import { Buffer } from 'buffer';
+import "./App.css";
+import { WalletNotConnectedError } from "@solana/wallet-adapter-base";
+import { useConnection, useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useRef, useEffect, useState } from "react";
 import { encode as base64_encode } from 'base-64';
+import * as anchor from "@project-serum/anchor";
+import idl from "./idl.json";
 import { create } from 'ipfs-http-client'
-import axios from 'axios';
+import axios from 'axios'
+import { Buffer } from "buffer";
+import logo from './logo.png'
+
+//in case buffer is not defined
+!window.Buffer ? window.Buffer = Buffer : window.Buffer = window.Buffer;
 
 const secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
 const encodedSecrets = base64_encode(secrets)
 
-window.Buffer ? window.Buffer = window.Buffer : window.Buffer = Buffer;
-
-// connect to the default API address http://localhost:5001
 const ipfsHttpClient = create({
   host: "ipfs.infura.io",
-  port: "5001",
+  port: 5001,
   protocol: "https",
   headers: {
     Authorization: 'Basic ' + encodedSecrets
   }
 })
 
-const { SystemProgram, Keypair } = web3;
-
-// Create a keypair for the account that will hold the file hashes
-const arr = Object.values(kp._keypair.secretKey)
-const secret = new Uint8Array(arr)
-const baseAccount = web3.Keypair.fromSecretKey(secret)
-
-
-// Get our program's id from the IDL file.
-const programID = new PublicKey(idl.metadata.address);
-
-// Set our network to devnet.
-const network = clusterApiUrl('devnet');
-
-// Controls how we want to acknowledge when a transaction is "done".
-const opts = {
-  preflightCommitment: "processed",
-}
-
 const App = () => {
-  const [walletAddress, setWalletAddress] = useState(null);
-  const [hashList, setHashList] = useState([]);
+  const { publicKey } = useWallet();
+
+  return (
+    <div className="App">
+      <div className={publicKey ? "authed-container" : "container"}>
+        <div className="header-container">
+            <img src={logo} className="App-logo" alt="logo" />
+            <h2>Diploma Management System</h2>
+          {!publicKey ? (
+            <WalletMultiButton
+              className={"connect wallet-adapter-button-trigger"}
+            />
+          ) : (
+            <ConnectedContainer />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ConnectedContainer = () => {
+  const { connection } = useConnection();
+  const { publicKey } = useWallet();
+  const [hasStorage, setStatus] = useState(false);
   const [file, setFile] = useState(Buffer(''));
+  const [fileName, setFileName] = useState("");
   const [cert, setCert] = useState(Buffer(''));
-  const [certPwd, setCertPwd] = useState('');
-  const [receipt, setReceipt] = useState("");
+  const [certPwd, setCertPwd] = useState("");
+  const [hashList, setHashList] = useState([]);
+  const [receipt, setReceipt] = useState('');
 
-  const checkIfwalletIsConnected = async () => {
-    try {
-      const { solana } = window;
-      if (solana) {
-        if (solana.isPhantom) {
-          console.log("Phantom wallet found!");
-          const response = await solana.connect();
-          console.log(
-            'Connected with Public Key:',
-            response.publicKey.toString()
-          );
-          setWalletAddress(response.publicKey.toString())
-        }
-      }
-      else {
-        alert("Download phantom wallet extension")
-      }
-    } catch (error) {
-      console.log(error)
-    }
-  }
+  const provider = new anchor.AnchorProvider(connection, window.solana, {
+    preflightCommitment: "processed",
+  });
 
-  useEffect(() => {
-    const onLoad = async () => {
-      await checkIfwalletIsConnected();
-    }
-    window.addEventListener('load', onLoad);
-    return () => window.removeEventListener('load', onLoad);
-  }, []);
+  const program = new anchor.Program(
+    idl,
+    idl.metadata.address,
+    provider
+  );
 
-
-  const getProvider = () => {
-    const connection = new Connection(network, opts.preflightCommitment);
-    const provider = new AnchorProvider(
-      connection, window.solana, opts.preflightCommitment,
+  const getProgramAddress = () => {
+    if (!publicKey) throw new WalletNotConnectedError();
+    const [address] = anchor.web3.PublicKey.findProgramAddressSync(
+      [
+        anchor.utils.bytes.utf8.encode("storage"),
+        new anchor.web3.PublicKey(publicKey).toBuffer(),
+      ],
+      program.programId
     );
-    return provider;
-  }
+    return address;
+  };
 
-  const getHashList = async () => {
-    try {
-      const provider = getProvider();
-      const program = new Program(idl, programID, provider);
-      const account = await program.account.baseAccount.fetch(baseAccount.publicKey);
-
-      console.log("Got the account", account)
-      setHashList(account.gifList)
-
-    } catch (error) {
-      console.log("Error in getHashList: ", error)
-      setHashList(null);
-    }
-  }
-
+  //load program and fetch list of files if user has a owner account already
   useEffect(() => {
-    if (walletAddress) {
-      console.log('Fetching File Hashes list...');
-      getHashList()
-    }
-  }, [walletAddress]);
+    (async () => {
+      const address = getProgramAddress();
+      const storage = await program.account.data.getAccountInfo(address);
+      if (storage?.owner) {
+        const userImages = await fetchImgs(address);
+        if (userImages) {
+          setHashList(userImages);
+          setStatus(true);
+        } else setHashList([]);
+      } else setStatus(false);
+    })();
+  }, [publicKey]);
 
+  const fetchImgs = async (address) => {
+    let userImages = (await program.account.data.fetch(address))
+      .images;
+    return userImages;
+  };
 
-  const connectWallet = async () => { };
-
-  const captureFile = (e) => {
-    e.preventDefault();
-    const data = e.target.files[0];
-    const reader = new window.FileReader();
-    reader.readAsArrayBuffer(data);
-    reader.onloadend = () => {
-      setFile(Buffer(reader.result))
-    }
-  }
-
-  const captureCert = (e) => {
-    e.preventDefault();
-    const data = e.target.files[0];
-    const reader = new window.FileReader();
-    reader.readAsArrayBuffer(data);
-    reader.onloadend = () => {
-      setCert(Buffer(reader.result))
-    }
-  }
-
-  const handleCertPwdChange = (e) => {
-    e.preventDefault();
-    setCertPwd(e.target.value)
-  }
+  // if he user doesn't, initialize program for his wallet account
+  const initProgram = async () => {
+    const address = getProgramAddress();
+    const tx = await program.methods
+      .initialize()
+      .accounts({ storage: address })
+      .rpc();
+    console.log("Storage initialized: " + tx);
+    setStatus(true);
+  };
 
   const sendFile = async () => {
-    if (!file) {
-      console.log("No file given!")
-      return
+    if (file == null || file === undefined) {
+      alert("Empty input!");
+      return;
     }
 
-    await sendFileForSign(file, cert, certPwd );
-  }
+    console.log('signing your file');
+    console.log('your file: ');
+    console.log(file);
+    console.log('your certificate: ');
+    console.log(cert);
+    console.log('your pwd');
+    console.log(certPwd)
 
-   //sends a signature request to the server and returns a signed file
-  const sendFileForSign = async(pdf, cert, pwd) => {
-    console.log('your file before signing');
-    console.log(pdf)
+    await sign(file, cert, certPwd);
+  };
+
+  //sends a signature request to the server and returns a signed file
+  const sign = async (pdf, cert, pwd) => {
     await axios({
       withCredentials: false,
       method: "POST",
       url: 'http://localhost:5000/sign',
-      headers: { 
+      headers: {
         "Content-Type": "application/json",
       },
       data: {
@@ -166,178 +144,132 @@ const App = () => {
         "cert": cert,
         "pwd": pwd
       }
+    }).then(async res => {
+      console.log("your file after signing")
+      console.log(res);
+
+      await saveToIpfs(Buffer(res.data.file));
     })
-    .then(async res => 
-      {
-        console.log('your file after signing');
-        console.log(res)
+  }
 
-        await sendToIpfs(Buffer(res.data.file));
+  //uploads a file to ipfs and saves the returned hash
+  const saveToIpfs = async (file) => {
+    await ipfsHttpClient.add(file)
+      .then(async res => {
+        const fileHash = res.path
+        console.log("Ipfs storage successful");
+        console.log("your file hash: " + fileHash)
+
+        await storeHash(fileHash)
       })
-    .catch(err => 
-      {
-        console.log('Error while signing file : ' + err)
+      .catch((error) => {
+        console.log('error! Failed to upload to IPFS: ' + error)
         return;
-      }); 
-  }
-
-  const sendToIpfs = async(signedFile) => {
-    try {
-      await ipfsHttpClient.add(signedFile).then(async res => {
-        await storeHash(res.path);
-        console.log('ipfs Hash: ');
-        console.log(res)
-      })
-    } catch (error) {
-      console.log(error);
-      return;
-    }
-    console.log('file stored sucessfuly')
-  }
-
-  const storeHash = async (hash) => {
-
-    console.log('your ipfs hash:', hash);
-
-    let res;
-    try {
-      const provider = getProvider();
-      const program = new Program(idl, programID, provider);
-
-      res = await program.rpc.addGif(hash, {
-        accounts: {
-          baseAccount: baseAccount.publicKey,
-          user: provider.wallet.publicKey,
-        },
-      });
-      console.log("Transaction sucessful")
-      setReceipt(`https://explorer.solana.com/tx/${res}?cluster=devnet`)
-      console.log(receipt);
-
-      await getHashList();
-    } catch (error) {
-      console.log("Error sending Hash:", error)
-      res = 0;
-      return;
-    }
-  };
-
-  /*
-   * We want to render this UI when the user hasn't connected
-   * their wallet to our app yet.
-   */
-  const renderNotConnectedContainer = () => (
-    <button
-      className="cta-button connect-wallet-button"
-      onClick={connectWallet}
-    >
-      Connect to Wallet
-    </button>
-  );
-
-  const createHashAccount = async () => {
-    try {
-      const provider = getProvider();
-      const program = new Program(idl, programID, provider);
-      console.log("ping")
-      await program.rpc.startStuffOff({
-        accounts: {
-          baseAccount: baseAccount.publicKey,
-          user: provider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-        },
-        signers: [baseAccount]
-      });
-      console.log("Created a new BaseAccount w/ address:", baseAccount.publicKey.toString())
-      await getHashList();
-
-    } catch (error) {
-      console.log("Error creating BaseAccount account:", error)
-    }
-  }
-
-  const renderConnectedContainer = () => {
-    // If we hit this, it means the program account hasn't been initialized.
-    if (hashList === null) {
-      return (
-        <div className="connected-container">
-          <button className="cta-button submit-gif-button" onClick={createHashAccount}>
-            Do One-Time Initialization For File Upload Program Account
-          </button>
-        </div>
+      }
       )
+  }
+
+  const storeHash = async(hash) => {
+    const address = getProgramAddress();
+    const tx = await program.methods
+      .addImg(hash, fileName)
+      .accounts({ storage: address })
+      .rpc();
+
+    setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+    setHashList(await fetchImgs(address));
+
+    console.log("Ipfs hash was stored in your program");
+    console.log('transaction receipt: ' + receipt)
+  }
+
+  //buffering files
+  const captureFile = (e) => {
+    e.preventDefault();
+    
+    const data = e.target.files[0];
+    const reader = new window.FileReader();
+
+    reader.onload = () => {
+      setFile(Buffer(reader.result));
+      setFileName(data.name);
     }
-    // Otherwise, we're good! Account exists. User can submit files.
-    else {
-      return (
-        <div >
-          <p>&nbsp;</p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              sendFile();
-            }}
-          >
-            <div>
-              <label>upload pdf</label>
-              <input
-                type="file"
-                placeholder="Upload you file"
-                onChange={captureFile}
-              />
-            </div>
-            <div>
-              <label>upload your certificate</label>
-              <input
-                type="file"
-                placeholder="Upload your certificate"
-                onChange={captureCert}
-              />
-            </div>
-            <div>
-              <label>certificate password</label>
-              <input
-                type="text"
-                placeholder="Password"
-                onChange={handleCertPwdChange}
-                value={certPwd}
-              />
-            </div>            
-            <input title='sign' type="submit"/>
-          </form>
-          <p>&nbsp;</p>
-          <div className='results'>
-          <h4>
-            {receipt !== "" ? 'View your transaction in Etherscan' : ""}
-          </h4>
-          <br></br>
-          {receipt !== "" ? <a href={receipt}>{receipt}</a> : ""}
+
+    reader.readAsArrayBuffer(data);
+
+  }
+
+  const captureCert = (e) => {
+    e.preventDefault();
+
+    const data = e.target.files[0];
+    const reader = new window.FileReader();
+
+    reader.readAsArrayBuffer(data);
+    reader.onloadend = () => {
+      setCert(Buffer(reader.result))
+    }
+  }
+
+  const onHandleCertPwdChange = (e) => {
+    e.preventDefault();
+    setCertPwd(e.target.value);
+  }
+
+  if (!hasStorage)
+    return (
+      <div className="connected-container">
+        <p className="sub-text">
+          First, you need to initialize your storage
+        </p>
+        <button className="cta-button submit-img-button" onClick={initProgram}>
+          Initialize
+        </button>
+      </div>
+    );
+  else
+    return (
+      <div className="connected-container">
+        <form onSubmit={(e) => { e.preventDefault(); sendFile(); }}>
+          <div>
+            <h4>Your file</h4>
+            <input type="file" onChange={captureFile} />
           </div>
-          <div className="gif-grid">
-            {/* We use index as the key instead, also, the src is now item.gifLink */}
-            {hashList.map((item, index) => (
-              <div className="gif-item" key={index}>
-                <a href={`https://ipfs.stibits.com/${item.gifLink}`}>You file</a>
+          <div>
+            <h4>Your certificate</h4>
+            <input type="file" onChange={captureCert} />
+          </div>
+          <div>
+            <h4>Your certificate password</h4>
+            <input type="text" placeholder="password" onChange={onHandleCertPwdChange} />
+          </div>
+          <button type="submit" className="cta-button submit-img-button">
+            Submit
+          </button>
+        </form>
+        {hashList.length ? (
+          <div className="grid" >
+            {hashList.map((e) => (
+              <div className="grid-item" key={e.link} style={
+                {
+                  backgroundColor: '#535b5c',
+                  border: '2px',
+                  marginBottom: '2px',
+                }
+              }>
+                <h3>{e.name}</h3>
+                <h4>Download links</h4>
+                <a href={`https://ipfs.stibits.com/${e.link}`}>ipfs.stibits</a>
+                <br></br>
+                <a href={`https://ipfsexplorer.online/ipfs/${e.link}`}>ipfsexplorer.online</a>
+                <h3>Your ipfs hash:</h3>
+                <h4>{e.link}</h4>
               </div>
             ))}
           </div>
-        </div>
-      )
-    }
-  }
-
-  return (
-    <div className="App">
-      {/* This was solely added for some styling fanciness */}
-      <div className={walletAddress ? 'authed-container' : 'container'}>
-        <div className="header-container">
-          <img src={logo} className="App-logo" alt="logo" />
-          <h2 className="header">Diploma Management System</h2>
-          {/* Add the condition to show this only if we don't have a wallet address */}
-          {!walletAddress ? renderNotConnectedContainer() : renderConnectedContainer()}
-        </div>
+        ) : null}
       </div>
-    </div>
-  );
+    );
 };
+
 export default App;
