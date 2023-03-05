@@ -150,6 +150,10 @@ const ConnectedContainer = () => {
 
       await saveToIpfs(Buffer(res.data.file));
     })
+    .catch((error) => {
+      alert('Could not upload your file. ' + error);
+      return;
+    });
   }
 
   //uploads a file to ipfs and saves the returned hash
@@ -163,10 +167,9 @@ const ConnectedContainer = () => {
         await storeHash(fileHash)
       })
       .catch((error) => {
-        console.log('error! Failed to upload to IPFS: ' + error)
+        alert('Could not upload your file. ' + error);
         return;
-      }
-      )
+      });
   }
 
   const storeHash = async(hash) => {
@@ -174,12 +177,29 @@ const ConnectedContainer = () => {
     const tx = await program.methods
       .addImg(hash, fileName)
       .accounts({ storage: address })
-      .rpc();
+      .rpc()
+      .catch((error) => {
+
+        if(error.message === 'User rejected the request.')
+        {
+          alert('Transaction canceled');
+          return;
+        }
+
+        alert('Could not upload your file. ' + error.message);
+        return;
+      });
 
     setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
-    setHashList(await fetchImgs(address));
+    setHashList(
+      await fetchImgs(address)
+      .catch((error) => {
+        alert('Could not Fetch your files. ' + error);
+        return;
+      })
+      );
 
-    console.log("Ipfs hash was stored in your program");
+    console.log("File upload succesful");
     console.log('transaction receipt: ' + receipt)
   }
 
@@ -196,7 +216,6 @@ const ConnectedContainer = () => {
     }
 
     reader.readAsArrayBuffer(data);
-
   }
 
   const captureCert = (e) => {
