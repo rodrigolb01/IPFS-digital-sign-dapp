@@ -1,5 +1,6 @@
 import React,  {useEffect, useState} from 'react';
 import logo from '../logo.png';
+import icon from '../res/file-pdf-svgrepo-com.svg'
 import './App.css';
 import { encode as base64_encode } from 'base-64';
 import FileStorage from '../abis/FileStorage.json';
@@ -32,11 +33,9 @@ const App = () => {
     const [hashList, setHashList] = useState([]);
     const [fileName, setFileName] = useState('');
     const [file, setFile] = useState(Buffer(''));
-    const [signedFile, setSignedFile] = useState(Buffer(''));
     const [cert, setCert] = useState(Buffer(''));
     const [certPassword, setCertPassword] = useState("");
     const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
-    const [cid, setCid] = useState("");
     const [receipt, setReceipt] = useState("");
 
     useEffect(() => {
@@ -145,7 +144,6 @@ const App = () => {
           return;
         }
 
-        setCid(fileHash);
         setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
         setReceipt(`https://goerli.etherscan.io/tx/${res.hash}`);
       } 
@@ -204,66 +202,77 @@ const App = () => {
   }
 
   return(
-    <div>
-      <div className='file upload'>
-        <nav className="navbar navbar-dark fixed-top bg-dark flex-md-nowrap p-0 shadow">
-        </nav>
+    <div className='file upload'>
         <div className="container-fluid mt-5">
           <div className="row">
             <main role="main" className="col-lg-12 d-flex text-center">
               <div className="content mr-auto ml-auto">
-                <img src={logo} className="App-logo" alt="logo" />
-                <p>&nbsp;</p>
-                <h2>Diploma Management System</h2>
-                <form onSubmit={onSubmit}>
-                  <div>
-                    <label>upload pdf</label>
-                    <input type="file" onChange={captureFile}/>
-                  </div>
-                  <div>
-                    <label>upload your certificate</label>
-                    <input type="file" onChange={captureCertificate}></input>
-                  </div>
-                  <div>
-                    <label>certificate password</label>
-                    <input type="text" placeholder='password' onChange={setCertificatePassword} value={certPassword}></input>
-                  </div>
-                  <input type="submit" title='sign'/>
-                </form>
-                <p>&nbsp;</p>
-                <div className="results">
-                  <div>
-                    <h4>
-                      {ipfsRedirectUrl !== "" ? "Your file" : ""}
-                    </h4>
-                    <div className='link-container'>
-                      <a href={ipfsRedirectUrl !== "" ? ipfsRedirectUrl : ""}>
-                        {ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
-                      </a>
-                    </div>                    
-                  </div>
-                  <div className="receipt-box">
-                    <h4>
-                      {receipt !== "" ? "View your transaction in Etherscan" : ""}
-                    </h4>
-                    {receipt ? <a href={receipt}>{receipt}</a> : ""}
-                  </div>
+                <div className="header">
+                  <img src={logo} className="App-logo" alt="logo" />
+                  <p>&nbsp;</p>
+                  <h2>Diploma Management System</h2>
                 </div>
-                <div className='your-files'>
-                  {
-                    hashList.map((file, i) => (
-                      <div className="item" key={i}>                         
-                          <a href={`https://ipfsexplorer.online/ipfs/${file.hash}`}>{file.name}</a>
+                <div className='body'>
+                  <div className="form">
+                    <form onSubmit={onSubmit}>
+                      <div>
+                        <label>upload pdf</label>
+                        <input type="file" onChange={captureFile}/>
                       </div>
-                    ))
-                  }
+                      <div>
+                        <label>upload your certificate</label>
+                        <input type="file" onChange={captureCertificate}></input>
+                      </div>
+                      <div>
+                        <label>certificate password</label>
+                        <input type="text" placeholder='password' onChange={setCertificatePassword} value={certPassword}></input>
+                      </div>
+                      <input type="submit" title='sign'/>
+                    </form>
+                  </div>
+                  <p>&nbsp;</p>
+                  <div className="receipt">
+                    <div>
+                      <h4>
+                        {ipfsRedirectUrl !== "" ? "Your file" : ""}
+                      </h4>
+                      <div className='link-container'>
+                        <a href={ipfsRedirectUrl !== "" ? ipfsRedirectUrl : ""}>
+                          {ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
+                        </a>
+                      </div>                    
+                    </div>
+                    <div className="receipt-box">
+                      <h4>
+                        {receipt !== "" ? "View your transaction in Etherscan" : ""}
+                      </h4>
+                      {receipt ? <a href={receipt}>{receipt}</a> : ""}
+                    </div>
+                  </div>
+                  <div className="files-list">
+                  
+                    {
+                      hashList.length? (                       
+                        hashList.map((file, i) => (
+                          <div className='item-container'>
+                            <div className='file-icon'>
+                                <img src={icon}></img>                         
+                            </div>
+                            <div className="file-item" key={i}>
+                                <a href={`https://ipfsexplorer.online/ipfs/${file.hash}`}>{file.name}</a>
+                            </div>
+                          </div>
+                        ))
+                      ) :
+                      null
+                    }
+                  </div>
                 </div>
               </div>
             </main>
           </div>
         </div>
       </div>
-    </div>
   );
 };
 export default App;

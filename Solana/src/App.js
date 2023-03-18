@@ -191,6 +191,8 @@ const ConnectedContainer = () => {
       });
 
     setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+    console.log('transaction tx:')
+    console.log(tx);
     setHashList(
       await fetchImgs(address)
       .catch((error) => {
