@@ -52,8 +52,6 @@ const App = () => {
     if(typeof window.ethereum !== "undefined")
     {
       const account = await window.ethereum.request({method: "eth_requestAccounts"});
-      console.log("your account");
-      console.log(account);
     }
     else
     {
@@ -64,15 +62,8 @@ const App = () => {
     if(typeof window.web3 !== "undefined")
     {
       const provider = new ethers.providers.Web3Provider(window.ethereum)
-      console.log("your provider");
-      console.log(provider);
-
-      //get contract from Ethereum 
       const deployedFileStorageContract = await new ethers.Contract(fileStorageContractAddress, FileStorage.abi, provider.getSigner());
-
       contract = deployedFileStorageContract;
-      console.log('your contract')
-      console.log(contract);
 
       await fetchFiles();
     }
@@ -120,10 +111,11 @@ const App = () => {
       }
     }).then(async res => 
       {
-        console.log("your file after signing")
-        console.log(res);
-
         await saveToIpfs(Buffer(res.data.file));
+      }).catch((error) => {
+        console.log('Error signing the file');
+        console.log(error);
+        alert(error);
       })
   }
 
@@ -136,24 +128,45 @@ const App = () => {
         const fileHash = res.path
         console.log("your ipfs hash")
         console.log(fileHash)
-        console.log(`file name: ${fileName}`)
-        const txRes = await storeHash(fileHash, fileName);
-        if(!txRes.hash)
-        {
-          console.log('Transaction canceled');
-          return;
-        }
+        // console.log(`file name: ${fileName}`)
 
-        setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
-        setReceipt(`https://goerli.etherscan.io/tx/${res.hash}`);
+        await storeHash(fileHash, fileName)
+        .catch((error) => {
+          console.log('Error storing the ipfs hash in the contract');
+          console.log(error);
+          return error;
+        });
       } 
     )
     .catch((error) => 
       {
-        console.log('error! Failed to upload to IPFS: ' + error)
-        return;
+        console.log('Error uploading file to IPFS: ' + error)
+        return error;
       }
     )
+  }
+
+  //smart contract functions
+  const storeHash = async(fileHash, name) => {
+    let tx;
+    try {
+      tx = await contract.set(fileHash, name);
+    } 
+    catch (error) {
+      if(error.code === 'ACTION_REJECTED')
+        alert('Transaction canceled user rejected the transaction')
+      else
+         console.log('Error accessing the contract');
+         
+      return error;
+    }
+
+    setReceipt(`https://goerli.etherscan.io/tx/${tx.hash}`);
+    setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
+
+    console.log('Ipfs hash was stored in the contract');
+    console.log('Transaction Receipt:');
+    console.log(tx);
   }
 
   const setCertificatePassword = (e) => {
@@ -184,21 +197,6 @@ const App = () => {
     reader.onloadend = () => {
       setCert(Buffer(reader.result));
     }
-  }
-
-  //smart contract functions
-  const storeHash = async(hash, name) => {
-    let res;
-    try {
-      res = contract.set(hash, name);
-    } catch (error) {
-      console.log('Transaction rejected');
-      console.log(error);
-      return 0;
-    }
-    console.log('transaction sucessful');
-    console.log(res);
-    return res;
   }
 
   return(
@@ -232,7 +230,7 @@ const App = () => {
                   </div>
                   <p>&nbsp;</p>
                   <div className="receipt">
-                    <div>
+                    <div className='fileLink-box'>
                       <h4>
                         {ipfsRedirectUrl !== "" ? "Your file" : ""}
                       </h4>
@@ -249,16 +247,15 @@ const App = () => {
                       {receipt ? <a href={receipt}>{receipt}</a> : ""}
                     </div>
                   </div>
-                  <div className="files-list">
-                  
+                  <div className="files-list">    
                     {
                       hashList.length? (                       
                         hashList.map((file, i) => (
-                          <div className='item-container'>
+                          <div className='item-container' key={i}> 
                             <div className='file-icon'>
                                 <img src={icon}></img>                         
                             </div>
-                            <div className="file-item" key={i}>
+                            <div className="file-item" >
                                 <a href={`https://ipfsexplorer.online/ipfs/${file.hash}`}>{file.name}</a>
                             </div>
                           </div>

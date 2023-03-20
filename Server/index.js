@@ -8,7 +8,7 @@ const cors = require('cors');
 const Buffer = require('buffer').Buffer;
 const dotenv = require('dotenv').config()
 
-const {plainAddPlaceholder} = require('node-signpdf')
+const { plainAddPlaceholder } = require('node-signpdf')
 const signer = require('node-signpdf');
 
 const signDocument = async(pdf, cert, pwd) => {

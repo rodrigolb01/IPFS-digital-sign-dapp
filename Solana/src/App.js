@@ -2,7 +2,7 @@ import "./App.css";
 import { WalletNotConnectedError } from "@solana/wallet-adapter-base";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useRef, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { encode as base64_encode } from 'base-64';
 import * as anchor from "@project-serum/anchor";
 import idl from "./idl.json";
@@ -11,7 +11,6 @@ import axios from 'axios'
 import { Buffer } from "buffer";
 import logo from './logo.png'
 
-//in case buffer is not defined
 !window.Buffer ? window.Buffer = Buffer : window.Buffer = window.Buffer;
 
 const secrets = process.env.REACT_APP_INFURA_IPFS_PROJECT_ID + ':' + process.env.REACT_APP_INFURA_IPFS_PROJECT_SECRET;
@@ -58,6 +57,7 @@ const ConnectedContainer = () => {
   const [certPwd, setCertPwd] = useState("");
   const [hashList, setHashList] = useState([]);
   const [receipt, setReceipt] = useState('');
+  const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState('');
 
   const provider = new anchor.AnchorProvider(connection, window.solana, {
     preflightCommitment: "processed",
@@ -119,13 +119,13 @@ const ConnectedContainer = () => {
       return;
     }
 
-    console.log('signing your file');
-    console.log('your file: ');
-    console.log(file);
-    console.log('your certificate: ');
-    console.log(cert);
-    console.log('your pwd');
-    console.log(certPwd)
+    // console.log('signing your file');
+    // console.log('your file: ');
+    // console.log(file);
+    // console.log('your certificate: ');
+    // console.log(cert);
+    // console.log('your pwd');
+    // console.log(certPwd)
 
     await sign(file, cert, certPwd);
   };
@@ -151,8 +151,9 @@ const ConnectedContainer = () => {
       await saveToIpfs(Buffer(res.data.file));
     })
     .catch((error) => {
-      alert('Could not upload your file. ' + error);
-      return;
+      alert('Error signing the file');
+      console.log(error);
+      return error;
     });
   }
 
@@ -167,8 +168,9 @@ const ConnectedContainer = () => {
         await storeHash(fileHash)
       })
       .catch((error) => {
-        alert('Could not upload your file. ' + error);
-        return;
+        alert('Error uploading file to ipfs');
+        console.log(error);
+        return error;
       });
   }
 
@@ -179,20 +181,20 @@ const ConnectedContainer = () => {
       .accounts({ storage: address })
       .rpc()
       .catch((error) => {
-
         if(error.message === 'User rejected the request.')
         {
-          alert('Transaction canceled');
+          alert('Transaction canceled user rejected the transaction');
           return;
         }
 
-        alert('Could not upload your file. ' + error.message);
-        return;
+        alert('Program error could not store the ipfs hash. ');
+        console.log(error.message);
+        return error;
       });
 
+    setIpfsRedirectUrl(`https://ipfs.stibits.com/${hash}`)
     setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
-    console.log('transaction tx:')
-    console.log(tx);
+
     setHashList(
       await fetchImgs(address)
       .catch((error) => {
@@ -200,9 +202,6 @@ const ConnectedContainer = () => {
         return;
       })
       );
-
-    console.log("File upload succesful");
-    console.log('transaction receipt: ' + receipt)
   }
 
   //buffering files
@@ -268,6 +267,28 @@ const ConnectedContainer = () => {
             Submit
           </button>
         </form>
+        <div className="results">
+          <div className="receipt-container">
+            {receipt !== '' || receipt !== undefined ? 
+            <div> 
+              <h4>View your transaction receipt</h4>
+              <a href={receipt}>{receipt}</a>
+            </div>
+            :
+            null
+            }
+          </div>
+          <div className="fileLink-container">
+            {ipfsRedirectUrl !== '' || ipfsRedirectUrl !== undefined ? 
+            <div> 
+              <h4>Link to your file</h4>
+              <a href={ipfsRedirectUrl}>{ipfsRedirectUrl}</a>
+            </div>
+            :
+            null
+            }
+          </div>
+        </div>
         {hashList.length ? (
           <div className="grid" >
             {hashList.map((e) => (

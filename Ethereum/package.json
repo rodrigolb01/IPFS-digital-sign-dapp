@@ -26,6 +26,7 @@
     "chai-bignumber": "3.0.0",
     "commander": "^10.0.0",
     "dotenv": "^16.0.3",
+    "ethereumjs-tx": "^2.1.2",
     "ethers": "^5.7.2",
     "express-fileupload": "^1.4.0",
     "forge": "^2.3.0",
