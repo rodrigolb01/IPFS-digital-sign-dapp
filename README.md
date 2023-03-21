@@ -1,6 +1,6 @@
 Aplicativo web para assinar documentos digitalmente e armazenar em blockchain. 
 É preciso ter instaladas as extensões Metamask e Phantom Wallet.
-É preciso também ter configurado um Infura gateway https://app.infura.io/
+É preciso também ter configurado um IPFS Infura gateway em https://app.infura.io/
 
 Instruções:
 
