@@ -155,6 +155,7 @@ const App = () => {
       if (error.code === "ACTION_REJECTED")
         alert("Transaction canceled user rejected the transaction");
       else console.log("Error accessing the contract");
+      console.log(error);
 
       return error;
     }
@@ -271,9 +272,7 @@ const App = () => {
                           <img src={icon} alt={icon}></img>
                         </div>
                         <div className="file-item">
-                          <a
-                            href={`https://ipfsexplorer.online/ipfs/${file.hash}`}
-                          >
+                          <a href={`https://ipfs.stibits.com/${file.hash}`}>
                             {file.name}
                           </a>
                         </div>
