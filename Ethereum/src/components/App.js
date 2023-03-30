@@ -164,8 +164,32 @@ const App = () => {
     setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
 
     console.log("Ipfs hash was stored in the contract");
-    console.log("Transaction Receipt:");
-    console.log(tx);
+    // console.log("Transaction Receipt:");
+    // console.log(tx);
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const currentTime = Date.now() * 0.001;
+    console.log("current timestamp: " + currentTime);
+
+    try {
+      let txBlock;
+
+      txBlock = await provider.getTransaction(tx.hash);
+      while (txBlock.blockHash == null) {
+        console.log("transaction being mined...");
+        txBlock = await provider.getTransaction(tx.hash);
+      }
+      const block = await provider.getBlock(txBlock.blockHash);
+      console.log("tx block mined at: " + block.timestamp);
+      console.log(
+        "The transaction took " +
+          (block.timestamp - currentTime) * 1000 +
+          " miliseconds to be processed"
+      );
+    } catch (error) {
+      console.log("error retrieving transaction");
+      console.log(error);
+    }
   };
 
   const setCertificatePassword = (e) => {

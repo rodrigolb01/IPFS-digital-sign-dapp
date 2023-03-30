@@ -177,6 +177,7 @@ const ConnectedContainer = () => {
 
   const storeHash = async (hash) => {
     const address = getProgramAddress();
+    let currentTime;
     const tx = await program.methods
       .addImg(hash, fileName)
       .accounts({ storage: address })
@@ -190,10 +191,32 @@ const ConnectedContainer = () => {
         alert("Program error could not store the ipfs hash. ");
         console.log(error.message);
         return error;
-      });
+      })
+      .then((currentTime = Date.now()));
+
+    currentTime = currentTime * 0.001;
+    console.log("current timestamp: " + currentTime);
 
     setIpfsRedirectUrl(`https://ipfs.stibits.com/${hash}`);
     setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+
+    try {
+      console.log("transaction hash: " + tx);
+      const res = await connection.getTransaction(tx);
+      console.log("fetched receupt");
+      console.log(res);
+      console.log("block mined at: " + res.blockTime);
+      console.log(
+        "the transaction took " +
+          (res.blockTime - currentTime) * 1000 +
+          "miliseconds to be processed"
+      );
+
+      console.log(res);
+    } catch (error) {
+      console.log("error recovering receipt");
+      console.log(error);
+    }
 
     setHashList(
       await fetchImgs(address).catch((error) => {

@@ -30,6 +30,7 @@
     "ethers": "^5.7.2",
     "express-fileupload": "^1.4.0",
     "forge": "^2.3.0",
+    "fortmatic": "^2.4.0",
     "fs": "^0.0.1-security",
     "ipfs-http-client": "^50.1.2",
     "jsrsasign": "^10.6.1",
@@ -47,7 +48,8 @@
     "solc": "^0.8.19",
     "solidity": "^0.0.1",
     "truffle": "^5.7.1",
-    "web3": "^1.0.0-beta.55"
+    "web3": "^1.9.0",
+    "web3-eth-contract": "^1.9.0"
   },
   "scripts": {
     "start": "react-scripts --openssl-legacy-provider start",
