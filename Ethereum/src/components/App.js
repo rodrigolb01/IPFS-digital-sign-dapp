@@ -40,7 +40,6 @@ const App = () => {
   const [file, setFile] = useState(Buffer(""));
   const [cert, setCert] = useState(Buffer(""));
   const [certPassword, setCertPassword] = useState("");
-  const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
   const [receipt, setReceipt] = useState("");
 
   useEffect(() => {
@@ -189,13 +188,6 @@ const App = () => {
       return error;
     }
 
-    setReceipt(`https://goerli.etherscan.io/tx/${tx.hash}`);
-    setIpfsRedirectUrl(`https://ipfs.stibits.com/${fileHash}`);
-
-    console.log("Ipfs hash was stored in the contract");
-    // console.log("Transaction Receipt:");
-    // console.log(tx);
-
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     const currentTime = Date.now() * 0.001;
     console.log("current timestamp: " + currentTime);
@@ -205,7 +197,7 @@ const App = () => {
 
       txBlock = await provider.getTransaction(tx.hash);
       while (txBlock.blockHash == null) {
-        console.log("transaction being mined...");
+        console.log("transaction being processed...");
         txBlock = await provider.getTransaction(tx.hash);
       }
       const block = await provider.getBlock(txBlock.blockHash);
@@ -215,6 +207,8 @@ const App = () => {
           (block.timestamp - currentTime) * 1000 +
           " miliseconds to be processed"
       );
+      setReceipt(`https://goerli.etherscan.io/tx/${tx.hash}`);
+      onFileDownload(fileHash);
     } catch (error) {
       console.log("error retrieving transaction");
       console.log(error);
@@ -296,19 +290,13 @@ const App = () => {
             </div>
 
             <div className="results">
-              <div className="fileLink-container">
-                <h4>{ipfsRedirectUrl !== "" ? "Your file" : ""}</h4>
-                <div>
-                  <a href={ipfsRedirectUrl !== "" ? ipfsRedirectUrl : ""}>
-                    {ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
-                  </a>
-                </div>
-              </div>
               <div className="receipt-container">
                 <h4>
-                  {receipt !== "" ? "View your transaction in Etherscan" : ""}
+                  {receipt !== ""
+                    ? "Your file was signed and uploaded to the IPFS"
+                    : ""}
                 </h4>
-                {receipt ? <a href={receipt}>{receipt}</a> : ""}
+                {receipt ? <a href={receipt}>View transaction details</a> : ""}
               </div>
             </div>
 
