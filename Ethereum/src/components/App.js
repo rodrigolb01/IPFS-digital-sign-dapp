@@ -4,7 +4,7 @@ import icon from "../res/file-pdf-svgrepo-com.svg";
 import "./App.css";
 import { encode as base64_encode } from "base-64";
 import FileStorage from "../abis/FileStorage.json";
-import { create } from "ipfs-http-client";
+import { create, CID } from "ipfs-http-client";
 import axios from "axios";
 
 require("dotenv").config();
@@ -52,10 +52,10 @@ const App = () => {
     return () => window.removeEventListener("load", onLoad);
   });
 
-  //connect to Ethereum via Metamask and set access to deployed contract
+  //setup connection to web3 via wallet
   const loadWeb3 = async () => {
     if (typeof window.ethereum !== "undefined") {
-      const account = await window.ethereum.request({
+      await window.ethereum.request({
         method: "eth_requestAccounts",
       });
     } else {
@@ -78,6 +78,7 @@ const App = () => {
     }
   };
 
+  //fetch all files from user wallet address
   const fetchFiles = async () => {
     try {
       const res = await contract.get();
@@ -88,6 +89,34 @@ const App = () => {
       console.log(error);
       return;
     }
+  };
+
+  const onFileDownload = async (path) => {
+    console.log(path);
+
+    const cidV0 = new CID(path).toV0().toString();
+
+    const res = await ipfsHttpClient.cat(cidV0);
+
+    let data = [];
+    for await (const chunk of res) {
+      data = [...data, ...chunk];
+    }
+
+    const file = Buffer(data);
+
+    const blob = new Blob([file], { type: "application/pdf" });
+
+    var element = document.createElement("a");
+    element.href = window.URL.createObjectURL(blob);
+    element.setAttribute("download", "file.pdf");
+
+    element.style.display = "none";
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
   };
 
   const onSubmit = async (e) => {
@@ -197,7 +226,6 @@ const App = () => {
     setCertPassword(e.target.value);
   };
 
-  //buffering files
   const captureFile = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
@@ -210,7 +238,7 @@ const App = () => {
     };
   };
 
-  //buffer a x509 certificate in p12 format
+  //upload a x509 certificate in p12 format (.pfx)
   const captureCertificate = (e) => {
     e.preventDefault();
     const data = e.target.files[0];
@@ -296,9 +324,15 @@ const App = () => {
                           <img src={icon} alt={icon}></img>
                         </div>
                         <div className="file-item">
-                          <a href={`https://ipfs.stibits.com/${file.hash}`}>
-                            {file.name}
-                          </a>
+                          {file.name}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onFileDownload(file.hash);
+                            }}
+                          >
+                            Download
+                          </button>
                         </div>
                       </div>
                     ))
