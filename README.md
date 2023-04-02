@@ -1,5 +1,7 @@
 Aplicativo web para assinar documentos digitalmente e armazenar em blockchain. 
-É preciso ter instaladas as extensões Metamask e Phantom Wallet.
+
+
+Para usar confiurar é preciso ter instaladas as extensões Metamask e Phantom Wallet.
 É preciso também ter configurado um IPFS Infura gateway em https://app.infura.io/
 
 Instruções:
@@ -19,13 +21,9 @@ Instruções:
 
 #7 inserir senha do certificado
 
-#8 clicar em 'sign' e aprovar a transacão (é preciso ter moedas de teste. Podem ser obtidas por uma fauceta)
+#8 clicar em 'sign' e aprovar a transacão mas é preciso ter moedas de teste. Podem ser obtidas por uma fauceta (link para a faucet no final do arquivo)
 
-# Validação da assinatura
-
-#9 baixar arquivo pelo link disponibilizado ao final do processo
- 
-#10 Abrir com Adobe Acrobat
+Assinatura pode ser validada por um leitor de pdf
 
 Fauceta da Solana: 
 https://solfaucet.com/
