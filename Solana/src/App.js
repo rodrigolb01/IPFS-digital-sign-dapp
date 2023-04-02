@@ -33,17 +33,13 @@ const App = () => {
   const { publicKey } = useWallet();
 
   return (
-    <div className="App">
+    <div className="d-flex gap-5 justify-content-center">
+      <div className="loader"></div>
       <div>
         <main role="main" className="col-lg-12 d-flex text-center">
           <div className="content mr-auto ml-auto">
             <div className="header">
-              <div>
-                <img src={logo} alt="logo" />
-                <p>&nbsp;</p>
-                <h2>Diploma Management System</h2>
-              </div>
-              <div className="container">
+              <div className="d-flex gap-5 justify-content-center">
                 <div className="col-md-7 col-lg-8">
                   {!publicKey ? <WalletMultiButton /> : <ConnectedContainer />}
                 </div>
@@ -224,8 +220,16 @@ const ConnectedContainer = () => {
     currentTime = currentTime * 0.001;
     console.log("current timestamp: " + currentTime);
 
+    window.addEventListener("animationstart", () => {});
+
+    const loader = document.querySelector(".loader");
+    loader.classList.add("loader-start");
+    const formContainer = document.querySelector(".form-container");
+    formContainer.classList.add("form-container-loading");
+
     try {
       console.log("transaction hash: " + tx);
+      //await block confirmtion
       const res = await connection.getTransaction(tx);
       console.log("fetched receipt");
       console.log(res);
@@ -235,6 +239,13 @@ const ConnectedContainer = () => {
           (res.blockTime - currentTime) * 1000 +
           "miliseconds to be processed"
       );
+
+      formContainer.classList.remove("form-container-loading");
+      loader.classList.add("loader-hidden");
+
+      window.removeEventListener("animationstart", () => {
+        document.body.removeChild("loader");
+      });
 
       setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
       onFileDownload(hash);
@@ -298,7 +309,12 @@ const ConnectedContainer = () => {
     return (
       <div>
         <div>
-          <div>
+          <div className="form-container">
+            <div>
+              <img src={logo} alt="logo" />
+              <p>&nbsp;</p>
+              <h2>Diploma Management System</h2>
+            </div>
             <div>
               <form
                 onSubmit={(e) => {
@@ -318,15 +334,13 @@ const ConnectedContainer = () => {
                   <div className="col-sm-6">
                     <label className="form-label">Select certificate</label>
                     <input
-                      className="form-contol"
+                      className="form-control"
                       type="file"
                       onChange={captureCert}
                     />
                   </div>
                   <div className="col-sm-6">
-                    <label className="form-label">
-                      Your certificate password
-                    </label>
+                    <label className="form-label">Certificate password</label>
                     <input
                       className="form-control"
                       type="password"

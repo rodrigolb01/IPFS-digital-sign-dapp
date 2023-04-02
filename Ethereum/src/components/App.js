@@ -1,7 +1,7 @@
+import "./App.css";
 import React, { useEffect, useState } from "react";
 import logo from "../logo.png";
 import icon from "../res/file-pdf-svgrepo-com.svg";
-import "./App.css";
 import { encode as base64_encode } from "base-64";
 import FileStorage from "../abis/FileStorage.json";
 import { create, CID } from "ipfs-http-client";
@@ -196,10 +196,28 @@ const App = () => {
       let txBlock;
 
       txBlock = await provider.getTransaction(tx.hash);
+
+      window.addEventListener("animationstart", () => {});
+
+      const loader = document.querySelector(".loader");
+      loader.classList.add("loader-start");
+
+      const formContainer = document.querySelector(".form-container");
+      formContainer.classList.add("form-container-loading");
+
+      //await block confirmtion
       while (txBlock.blockHash == null) {
         console.log("transaction being processed...");
         txBlock = await provider.getTransaction(tx.hash);
       }
+
+      formContainer.classList.remove("form-container-loading");
+      loader.classList.add("loader-hidden");
+
+      window.removeEventListener("animationstart", () => {
+        document.body.removeChild("loader");
+      });
+
       const block = await provider.getBlock(txBlock.blockHash);
       console.log("tx block mined at: " + block.timestamp);
       console.log(
@@ -244,48 +262,56 @@ const App = () => {
   };
   return (
     <div className="file-upload">
+      <div className="loader"></div>
       <div>
         <main role="main" className="col-lg-12 d-flex text-center">
           <div className="content mr-auto ml-auto">
-            <div className="header">
-              <img src={logo} className="App-logo" alt="logo" />
-              <p>&nbsp;</p>
-              <h2>Diploma Management System</h2>
-            </div>
-            <div className="row g-5">
-              <div className="col-md-7 col-lg-8">
-                <form onSubmit={onSubmit}>
-                  <div className="row g-3">
-                    <div className="col-sm-6">
-                      <label className="form-label">Select file</label>
-                      <input
-                        className="form-control"
-                        type="file"
-                        onChange={captureFile}
-                      />
+            <div className="form-container">
+              <div className="header">
+                <img src={logo} className="App-logo" alt="logo" />
+                <p>&nbsp;</p>
+                <h2>Diploma Management System</h2>
+              </div>
+              <div className="d-flex gap-5 justify-content-center">
+                <div className="col-md-7 col-lg-8">
+                  <form onSubmit={onSubmit}>
+                    <div className="row g-3">
+                      <div className="col-sm-6">
+                        <label className="form-label">Select file</label>
+                        <input
+                          className="form-control"
+                          type="file"
+                          onChange={captureFile}
+                        />
+                      </div>
+                      <div className="col-sm-6">
+                        <label className="form-label">Select certificate</label>
+                        <input
+                          className="form-control"
+                          type="file"
+                          onChange={captureCertificate}
+                        ></input>
+                      </div>
+                      <div className="col-sm-6">
+                        <label className="form-label">
+                          Certificate password
+                        </label>
+                        <input
+                          className="form-control"
+                          type="password"
+                          onChange={setCertificatePassword}
+                          value={certPassword}
+                        ></input>
+                      </div>
                     </div>
-                    <div className="col-sm-6">
-                      <label className="form-label">Select certificate</label>
-                      <input
-                        className="form-control"
-                        type="file"
-                        onChange={captureCertificate}
-                      ></input>
-                    </div>
-                    <div className="col-sm-6">
-                      <label className="form-label">Certificate password</label>
-                      <input
-                        className="form-control"
-                        type="password"
-                        placeholder="password"
-                        onChange={setCertificatePassword}
-                        value={certPassword}
-                      ></input>
-                    </div>
-                  </div>
-                  <p>&nbsp;</p>
-                  <input className="form-control" type="submit" title="sign" />
-                </form>
+                    <p>&nbsp;</p>
+                    <input
+                      className="form-control"
+                      type="submit"
+                      title="sign"
+                    />
+                  </form>
+                </div>
               </div>
             </div>
 
