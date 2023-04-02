@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { encode as base64_encode } from "base-64";
 import * as anchor from "@project-serum/anchor";
 import idl from "./idl.json";
-import { create } from "ipfs-http-client";
+import { CID, create } from "ipfs-http-client";
 import axios from "axios";
 import { Buffer } from "buffer";
 import logo from "./logo.png";
@@ -33,15 +33,20 @@ const App = () => {
   const { publicKey } = useWallet();
 
   return (
-    <div>
+    <div className="App">
       <div>
         <main role="main" className="col-lg-12 d-flex text-center">
           <div className="content mr-auto ml-auto">
-            <div>
+            <div className="header">
               <div>
                 <img src={logo} alt="logo" />
+                <p>&nbsp;</p>
                 <h2>Diploma Management System</h2>
-                {!publicKey ? <WalletMultiButton /> : <ConnectedContainer />}
+              </div>
+              <div className="container">
+                <div className="col-md-7 col-lg-8">
+                  {!publicKey ? <WalletMultiButton /> : <ConnectedContainer />}
+                </div>
               </div>
             </div>
           </div>
@@ -61,7 +66,6 @@ const ConnectedContainer = () => {
   const [certPwd, setCertPwd] = useState("");
   const [hashList, setHashList] = useState([]);
   const [receipt, setReceipt] = useState("");
-  const [ipfsRedirectUrl, setIpfsRedirectUrl] = useState("");
 
   const provider = new anchor.AnchorProvider(connection, window.solana, {
     preflightCommitment: "processed",
@@ -101,6 +105,37 @@ const ConnectedContainer = () => {
     return userImages;
   };
 
+  const onFileDownload = async (path) => {
+    console.log(path);
+
+    const cidV0 = new CID(path).toV0().toString();
+
+    const res = await ipfsHttpClient.cat(cidV0);
+
+    console.log("ipfs response");
+    console.log(res);
+
+    let data = [];
+    for await (const chunk of res) {
+      data = [...data, ...chunk];
+    }
+
+    const file = Buffer(data);
+
+    const blob = new Blob([file], { type: "application/pdf" });
+
+    var element = document.createElement("a");
+    element.href = window.URL.createObjectURL(blob);
+    element.setAttribute("download", "file.pdf");
+
+    element.style.display = "none";
+    document.body.appendChild(element);
+
+    element.click();
+
+    document.body.removeChild(element);
+  };
+
   // if he user doesn't, initialize program for his wallet account
   const initProgram = async () => {
     const address = getProgramAddress();
@@ -117,14 +152,6 @@ const ConnectedContainer = () => {
       alert("Empty input!");
       return;
     }
-
-    // console.log('signing your file');
-    // console.log('your file: ');
-    // console.log(file);
-    // console.log('your certificate: ');
-    // console.log(cert);
-    // console.log('your pwd');
-    // console.log(certPwd)
 
     await sign(file, cert, certPwd);
   };
@@ -197,13 +224,10 @@ const ConnectedContainer = () => {
     currentTime = currentTime * 0.001;
     console.log("current timestamp: " + currentTime);
 
-    setIpfsRedirectUrl(`https://ipfs.stibits.com/${hash}`);
-    setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
-
     try {
       console.log("transaction hash: " + tx);
       const res = await connection.getTransaction(tx);
-      console.log("fetched receupt");
+      console.log("fetched receipt");
       console.log(res);
       console.log("block mined at: " + res.blockTime);
       console.log(
@@ -211,6 +235,9 @@ const ConnectedContainer = () => {
           (res.blockTime - currentTime) * 1000 +
           "miliseconds to be processed"
       );
+
+      setReceipt(`https://explorer.solana.com/tx/${tx}?cluster=devnet`);
+      onFileDownload(hash);
 
       console.log(res);
     } catch (error) {
@@ -271,8 +298,8 @@ const ConnectedContainer = () => {
     return (
       <div>
         <div>
-          <div className="row g-5">
-            <div className="col-md-7 col-lg-8">
+          <div>
+            <div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -302,8 +329,7 @@ const ConnectedContainer = () => {
                     </label>
                     <input
                       className="form-control"
-                      type="text"
-                      placeholder="password"
+                      type="password"
                       onChange={onHandleCertPwdChange}
                     />
                   </div>
@@ -315,21 +341,13 @@ const ConnectedContainer = () => {
           </div>
 
           <div className="results">
-            <div className="fileLink-container">
-              <h4>{ipfsRedirectUrl !== "" ? "Your file" : ""}</h4>
-              <div>
-                <a href={ipfsRedirectUrl !== "" ? ipfsRedirectUrl : ""}>
-                  {ipfsRedirectUrl !== "" ? "ipfs.stibits.com" : ""}
-                </a>
-              </div>
-            </div>
             <div className="receipt-container">
               <h4>
                 {receipt !== ""
-                  ? "View your transaction in Solana explorer"
+                  ? "Your file was signed and uploaded to the IPFS"
                   : ""}
               </h4>
-              {receipt ? <a href={receipt}>{receipt}</a> : ""}
+              {receipt ? <a href={receipt}>Transaction details</a> : ""}
             </div>
           </div>
         </div>
@@ -339,15 +357,21 @@ const ConnectedContainer = () => {
           <div className="list-group mx-0 w-auto">
             {hashList.length ? (
               <div className="grid">
-                {hashList.map((e) => (
-                  <div key={e.link} className="list-group-item d-flex gap-2">
+                {hashList.map((file) => (
+                  <div key={file.link} className="list-group-item d-flex gap-2">
                     <div className="file-icon">
                       <img src={icon} alt={icon}></img>
                     </div>
                     <div className="file-item">
-                      <a href={`https://ipfsexplorer.online/ipfs/${e.link}`}>
-                        {e.name}
-                      </a>
+                      {file.name}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          onFileDownload(file.link);
+                        }}
+                      >
+                        Download
+                      </button>
                     </div>
                   </div>
                 ))}

@@ -243,7 +243,7 @@ const App = () => {
     };
   };
   return (
-    <div className="file upload">
+    <div className="file-upload">
       <div>
         <main role="main" className="col-lg-12 d-flex text-center">
           <div className="content mr-auto ml-auto">
@@ -296,7 +296,7 @@ const App = () => {
                     ? "Your file was signed and uploaded to the IPFS"
                     : ""}
                 </h4>
-                {receipt ? <a href={receipt}>View transaction details</a> : ""}
+                {receipt ? <a href={receipt}>Transaction details</a> : ""}
               </div>
             </div>
 
