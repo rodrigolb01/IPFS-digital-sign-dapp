@@ -144,8 +144,8 @@ const ConnectedContainer = () => {
   };
 
   const sendFile = async () => {
-    if (file == null || file === undefined) {
-      alert("Empty input!");
+    if (certPwd === "" || file == null || cert == null) {
+      alert("invalid fields");
       return;
     }
 

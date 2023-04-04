@@ -91,8 +91,6 @@ const App = () => {
   };
 
   const onFileDownload = async (path) => {
-    console.log(path);
-
     const cidV0 = new CID(path).toV0().toString();
 
     const res = await ipfsHttpClient.cat(cidV0);
@@ -120,6 +118,11 @@ const App = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+
+    if (certPassword === "" || file == null || cert == null) {
+      alert("invalid fields");
+      return;
+    }
 
     await sign(file, cert, certPassword);
   };
