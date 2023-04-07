@@ -80,7 +80,11 @@ const App = () => {
   //fetch all files from user wallet address
   const fetchFiles = async () => {
     try {
+      const start = Date.now();
       const res = await contract.get();
+      console.log(
+        "It took " + (Date.now() - start) + " miliseconds to recover the files"
+      );
       const h = [...res];
       setHashList(h);
     } catch (error) {

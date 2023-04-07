@@ -87,7 +87,7 @@ const ConnectedContainer = () => {
       const address = getProgramAddress();
       const storage = await program.account.data.getAccountInfo(address);
       if (storage?.owner) {
-        const userImages = await fetchImgs(address);
+        const userImages = await fetchFiles(address);
         if (userImages) {
           setHashList(userImages);
           setStatus(true);
@@ -96,8 +96,12 @@ const ConnectedContainer = () => {
     })();
   }, [publicKey]);
 
-  const fetchImgs = async (address) => {
+  const fetchFiles = async (address) => {
+    const start = Date.now();
     let userImages = (await program.account.data.fetch(address)).images;
+    console.log(
+      "It took " + (Date.now() - start) + " miliseconds to recover all files"
+    );
     return userImages;
   };
 
@@ -257,7 +261,7 @@ const ConnectedContainer = () => {
     }
 
     setHashList(
-      await fetchImgs(address).catch((error) => {
+      await fetchFiles(address).catch((error) => {
         alert("Could not Fetch your files. " + error);
         return;
       })
